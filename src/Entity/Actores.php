@@ -13,7 +13,7 @@ class Actores
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
-    #[ORM\Column]
+    #[ORM\Column(type: 'integer')]  // Añadimos el tipo explícitamente
     private ?int $id_actor = null;
 
     #[ORM\Column(length: 45)]
@@ -28,7 +28,10 @@ class Actores
     /**
      * @var Collection<int, Peliculas>
      */
-    #[ORM\ManyToMany(targetEntity: Peliculas::class)]
+    #[ORM\ManyToMany(targetEntity: Peliculas::class, inversedBy: 'actores')]
+    #[ORM\JoinTable(name: 'peliculas_has_actores')]
+    #[ORM\JoinColumn(name: 'id_actor', referencedColumnName: 'id_actor')]
+    #[ORM\InverseJoinColumn(name: 'id_pelicula', referencedColumnName: 'id_pelicula')]
     private Collection $relationPeliculas;
 
     public function __construct()
@@ -49,7 +52,6 @@ class Actores
     public function setNombre(string $nombre): static
     {
         $this->nombre = $nombre;
-
         return $this;
     }
 
@@ -61,7 +63,6 @@ class Actores
     public function setFechaNacimiento(\DateTimeInterface $fecha_nacimiento): static
     {
         $this->fecha_nacimiento = $fecha_nacimiento;
-
         return $this;
     }
 
@@ -73,7 +74,6 @@ class Actores
     public function setNacionalidad(string $nacionalidad): static
     {
         $this->nacionalidad = $nacionalidad;
-
         return $this;
     }
 
@@ -90,14 +90,12 @@ class Actores
         if (!$this->relationPeliculas->contains($relationPelicula)) {
             $this->relationPeliculas->add($relationPelicula);
         }
-
         return $this;
     }
 
     public function removeRelationPelicula(Peliculas $relationPelicula): static
     {
         $this->relationPeliculas->removeElement($relationPelicula);
-
         return $this;
     }
 }
