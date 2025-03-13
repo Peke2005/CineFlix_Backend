@@ -12,7 +12,7 @@ class Paises
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
-    #[ORM\Column]
+    #[ORM\Column(type: 'integer')]  // Añadimos el tipo explícitamente
     private ?int $id_pais = null;
 
     #[ORM\Column(length: 45)]
