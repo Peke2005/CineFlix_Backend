@@ -52,7 +52,7 @@ class UsuariosRepository extends ServiceEntityRepository
             ->setValue("nombre", ":nombre")
             ->setValue("email", ":email")
             ->setValue("contraseña", ":contraseña")
-            ->setValue("user", ":usuario")
+            ->setValue('rol', 'usuario')
             ->setValue("fecha_registro", Carbon::now());
 
         $query = $qb->getSQL();
@@ -61,8 +61,7 @@ class UsuariosRepository extends ServiceEntityRepository
             'nombre' => $Name,
             'email' => $Email,
             'contraseña' => $Password,
-            'usuario' => $User,
-            'password' => $Password,
+            'rol' => 'usuario',
             'fecha_registro' => $RegistrationDate
         ];
 

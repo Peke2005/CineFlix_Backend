@@ -29,7 +29,7 @@ final class UserController extends AbstractController
             $entityManager->getRepository(Usuarios::class)->createUser($request->get("name"), $request->get("email"), $request->get("contraseña"), $request->get("rol"), $request->get("fecha_registro"));
             return new JsonResponse("OK", Response::HTTP_CREATED);
         } catch (Exception $e) {
-            return new JsonResponse("KO", Response::HTTP_BAD_REQUEST);
+            return new JsonResponse("KO". $e->getMessage(), Response::HTTP_BAD_REQUEST);
         }
     }
 }
