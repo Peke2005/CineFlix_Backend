@@ -22,8 +22,8 @@ class Peliculas
     #[ORM\Column(length: 45)]
     private ?string $descripcion = null;
 
-    #[ORM\Column(type: Types::DATE_MUTABLE)]
-    private ?\DateTimeInterface $año = null;
+    #[ORM\Column(length: 4)]
+    private ?string $año = null;
 
     #[ORM\Column(type: 'integer')]
     private ?int $duracion = null;
