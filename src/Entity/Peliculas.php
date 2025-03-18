@@ -22,8 +22,8 @@ class Peliculas
     #[ORM\Column(length: 45)]
     private ?string $descripcion = null;
 
-    #[ORM\Column(type: Types::DATE_MUTABLE)]
-    private ?\DateTimeInterface $año = null;
+    #[ORM\Column(length: 4)]
+    private ?string $año = null;
 
     #[ORM\Column(type: 'integer')]
     private ?int $duracion = null;
@@ -116,6 +116,83 @@ class Peliculas
     public function setPaises(?Paises $paises): static
     {
         $this->paises = $paises;
+        return $this;
+    }
+
+    public function getIdPelicula(): ?int
+    {
+        return $this->id_pelicula;
+    }
+
+    public function getTitulo(): ?string
+    {
+        return $this->titulo;
+    }
+
+    public function setTitulo(string $titulo): static
+    {
+        $this->titulo = $titulo;
+
+        return $this;
+    }
+
+    public function getDescripcion(): ?string
+    {
+        return $this->descripcion;
+    }
+
+    public function setDescripcion(string $descripcion): static
+    {
+        $this->descripcion = $descripcion;
+
+        return $this;
+    }
+
+    public function getAño(): ?string
+    {
+        return $this->año;
+    }
+
+    public function setAño(string $año): static
+    {
+        $this->año = $año;
+
+        return $this;
+    }
+
+    public function getDuracion(): ?int
+    {
+        return $this->duracion;
+    }
+
+    public function setDuracion(int $duracion): static
+    {
+        $this->duracion = $duracion;
+
+        return $this;
+    }
+
+    public function getPortada(): ?string
+    {
+        return $this->portada;
+    }
+
+    public function setPortada(string $portada): static
+    {
+        $this->portada = $portada;
+
+        return $this;
+    }
+
+    public function getTrailer(): ?string
+    {
+        return $this->trailer;
+    }
+
+    public function setTrailer(string $trailer): static
+    {
+        $this->trailer = $trailer;
+
         return $this;
     }
 }

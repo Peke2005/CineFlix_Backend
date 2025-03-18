@@ -43,26 +43,27 @@ class UsuariosRepository extends ServiceEntityRepository
     //    }
 
 
-    public function createUser($Name, $Email, $Password, $User, $RegistrationDate)
+    public function createUser($Name, $Email, $Password)
     {
-
+        $rol = "usuario";
+        $RegistrationDate = Carbon::now();
         $qb = $this->getEntityManager()->getConnection()->createQueryBuilder();
 
         $qb->insert('usuarios')
             ->setValue("nombre", ":nombre")
             ->setValue("email", ":email")
-            ->setValue("contraseña", ":contraseña")
-            ->setValue("user", ":usuario")
-            ->setValue("fecha_registro", Carbon::now());
+            ->setValue("contraseña", ":pass")
+            ->setValue('rol', ':rol')
+            ->setValue("fecha_registro", ":fecha_registro");
+
 
         $query = $qb->getSQL();
 
         $params = [
             'nombre' => $Name,
             'email' => $Email,
-            'contraseña' => $Password,
-            'usuario' => $User,
-            'password' => $Password,
+            'pass' => $Password,
+            'rol' => $rol,
             'fecha_registro' => $RegistrationDate
         ];
 
