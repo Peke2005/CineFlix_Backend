@@ -22,13 +22,18 @@ final class UserController extends AbstractController
         ]);
     }
 
+    /* {
+    "nombre": "Juan Perez",
+    "email": "juan.perez@example.com",
+    "pass": "miContraseña123"
+} */
     #[Route('/userRegister', name: 'app_user', methods: ['POST'])]
     public function createUser(EntityManagerInterface $entityManager, Request $request): JsonResponse
     {
         try {
             $usuario = $request->toArray();
             $entityManager->getRepository(Usuarios::class)->createUser($usuario["nombre"], $usuario["email"], $usuario["pass"]);
-            return new JsonResponse("Usuario insertados correctamente!", Response::HTTP_CREATED);
+            return new JsonResponse("Usuario Insertado Correctamente!", Response::HTTP_CREATED);
         } catch (Exception $e) {
             return new JsonResponse("KO" . $e->getMessage(), Response::HTTP_BAD_REQUEST);
         }
