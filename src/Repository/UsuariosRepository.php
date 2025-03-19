@@ -69,4 +69,5 @@ class UsuariosRepository extends ServiceEntityRepository
 
         return $this->getEntityManager()->getConnection()->executeQuery($query, $params);
     }
+
 }
