@@ -25,8 +25,8 @@ final class UserController extends AbstractController
     }
 
     /* {
-    "nombre": "Juan Perez",
-    "email": "juan.perez@example.com",
+    "nombre": "Pol Perez",
+    "email": "pol.perez@example.com",
     "pass": "miContraseña123"
 } */
     #[Route('/userRegister', name: 'register_user', methods: ['POST'])]
@@ -38,12 +38,11 @@ final class UserController extends AbstractController
             return new JsonResponse("Usuario Insertado Correctamente!", Response::HTTP_CREATED);
         } catch (Exception $e) {
             return new JsonResponse(["status" => false, "id" => null, "logError" => $e->getMessage()], Response::HTTP_NOT_FOUND);
-
         }
     }
 
     #[Route('/userLogin', name: 'login_user', methods: ['POST'])]
-    public function loginUser(EntityManagerInterface $entityManager, Request $request)
+    public function login(EntityManagerInterface $entityManager, Request $request)
     {
         try {
             $userData = $request->toArray();
@@ -52,8 +51,7 @@ final class UserController extends AbstractController
             
             if ($userFound) {
                 $id = $userFound->getIdUsuario();
-                dd($userFound->getIdUsuario());
-                return new JsonResponse(["status" => true, "id" => $id, "logError" => null], Response::HTTP_OK);
+                return new JsonResponse(["status" => true, "id" => $id, "logError" => "Usuario Encontrado!"], Response::HTTP_OK);
             }
 
             throw new Exception("Los datos introducidos no coinciden con ningun usuario existente.");
@@ -61,17 +59,19 @@ final class UserController extends AbstractController
             return new JsonResponse(["status" => false, "id" => null, "logError" => $e->getMessage()], Response::HTTP_NOT_FOUND);
         }
     }
-
-    #[Route('/deleteUser', name: 'login_user', methods: ['DELETE'])]
+    
+    #[Route('/deleteUser', name: 'delete_user', methods: ['DELETE'])]
 
     public function deleteUser(EntityManagerInterface $entityManager, Request $request)
     {
 
         try {
             $userData = $request->toArray();
-            $userFound = $entityManager->getRepository(Usuarios::class)->findOneBy(["id" => $userData["id"]]);
+            $userFound = $entityManager->getRepository(Usuarios::class)->findOneBy(["id_usuario" => $userData["id"]]);
             if ($userFound) {
-                $id = $userFound->getIdUsuario();
+                $entityManager->remove($userFound);
+
+                $entityManager->flush();
                 return new JsonResponse("Se ha borrado el usuario correctamente!", Response::HTTP_CREATED);
             }
 
@@ -93,9 +93,9 @@ final class UserController extends AbstractController
 
         $qb = $entityManager->createQueryBuilder();
         $qb->select('p')
-           ->from(Peliculas::class, 'p')
-           ->where('p.titulo LIKE :title')
-           ->setParameter('title', '%' . $title . '%');
+            ->from(Peliculas::class, 'p')
+            ->where('p.titulo LIKE :title')
+            ->setParameter('title', '%' . $title . '%');
 
         $query = $qb->getQuery();
         $movies = $query->getResult();
@@ -126,30 +126,30 @@ final class UserController extends AbstractController
     public function findByCategory(Request $request, EntityManagerInterface $entityManager): JsonResponse
     {
         $categoryName = $request->query->get('category');
-    
+
         if (empty($categoryName)) {
             return new JsonResponse(['message' => 'Por favor, proporciona una categoría para la búsqueda.'], 400);
         }
-    
+
         $category = $entityManager->getRepository(Categorias::class)
             ->findOneBy(['nombre_categoria' => $categoryName]);
-    
+
         if (!$category) {
             return new JsonResponse(['message' => 'No se encontro la categoria especificada.'], 404);
         }
-    
+
         $categoryId = $category->getIdCategoria();
-    
+
         $qb = $entityManager->createQueryBuilder();
         $qb->select('p')
             ->from(Peliculas::class, 'p')
             ->join('p.relationCategorias', 'c')
             ->where('c.id_categoria = :categoryId')
             ->setParameter('categoryId', $categoryId);
-    
+
         $query = $qb->getQuery();
         $movies = $query->getResult();
-    
+
         if (!empty($movies)) {
             $result = [];
             foreach ($movies as $movie) {
@@ -157,7 +157,7 @@ final class UserController extends AbstractController
                 foreach ($movie->getRelationCategorias() as $category) {
                     $categories[] = $category->getNombreCategoria();
                 }
-    
+
                 $result[] = [
                     'title' => $movie->getTitulo(),
                     'duration' => $movie->getDuracion(),
@@ -165,7 +165,7 @@ final class UserController extends AbstractController
                     'categories' => $categories,
                 ];
             }
-    
+
             return new JsonResponse(['message' => 'Peliculas encontradas', 'data' => $result]);
         } else {
             return new JsonResponse(['message' => 'No se encontro ninguna pelicula en esa categoria.']);
