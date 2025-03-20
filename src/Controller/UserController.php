@@ -171,4 +171,30 @@ final class UserController extends AbstractController
             return new JsonResponse(['message' => 'No se encontro ninguna pelicula en esa categoria.']);
         }
     }
+    #[Route('/userSearchById', name: 'app_user_search_by_id', methods: ['GET'])]
+    public function findUserById(Request $request, EntityManagerInterface $entityManager): JsonResponse
+    {
+        $usuarioId = $request->query->get('id');
+    
+        if (empty($usuarioId) || !is_numeric($usuarioId)) {
+            return new JsonResponse(['message' => 'Por favor, proporciona un ID de usuario valido.'], 400);
+        }
+    
+        $usuario = $entityManager->getRepository(Usuarios::class)->find($usuarioId);
+    
+        if (!$usuario) {
+            return new JsonResponse(['message' => 'No se encontro el usuario especificado.'], 404);
+        }
+    
+        // Devolver información del usuario
+        $userData = [
+            'id' => $usuario->getIdUsuario(),
+            'nombre' => $usuario->getNombre(),
+            'email' => $usuario->getEmail(),
+            'contrnseña' => $usuario->getContraseña(),
+        ];
+    
+        return new JsonResponse(['message' => 'Usuario encontrado', 'data' => $userData], 200);
+    }
+    
 }
