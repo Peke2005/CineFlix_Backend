@@ -48,7 +48,7 @@ final class UserController extends AbstractController
             $userData = $request->toArray();
 
             $userFound = $entityManager->getRepository(Usuarios::class)->findOneBy(["email" => $userData["email"], "contraseña" => $userData["pass"]]);
-            
+
             if ($userFound) {
                 $id = $userFound->getIdUsuario();
                 return new JsonResponse(["status" => true, "id" => $id, "logError" => "Usuario Encontrado!"], Response::HTTP_OK);
@@ -59,7 +59,7 @@ final class UserController extends AbstractController
             return new JsonResponse(["status" => false, "id" => null, "logError" => $e->getMessage()], Response::HTTP_NOT_FOUND);
         }
     }
-    
+
     #[Route('/deleteUser', name: 'delete_user', methods: ['DELETE'])]
 
     public function deleteUser(EntityManagerInterface $entityManager, Request $request)
@@ -113,7 +113,6 @@ final class UserController extends AbstractController
                     'duration' => $movie->getDuracion(),
                     'description' => $movie->getDescripcion(),
                     'categories' => $categories,
-                    'imageUrl' => $movie->getImageUrl(),
                 ];
             }
 
@@ -164,7 +163,6 @@ final class UserController extends AbstractController
                     'duration' => $movie->getDuracion(),
                     'description' => $movie->getDescripcion(),
                     'categories' => $categories,
-                    'imageUrl' => $movie->getImageUrl(),
                 ];
             }
 
@@ -177,17 +175,17 @@ final class UserController extends AbstractController
     public function findUserById(Request $request, EntityManagerInterface $entityManager): JsonResponse
     {
         $usuarioId = $request->query->get('id');
-    
+
         if (empty($usuarioId) || !is_numeric($usuarioId)) {
             return new JsonResponse(['message' => 'Por favor, proporciona un ID de usuario valido.'], 400);
         }
-    
+
         $usuario = $entityManager->getRepository(Usuarios::class)->find($usuarioId);
-    
+
         if (!$usuario) {
             return new JsonResponse(['message' => 'No se encontro el usuario especificado.'], 404);
         }
-    
+
         // Devolver información del usuario
         $userData = [
             'id' => $usuario->getIdUsuario(),
@@ -195,8 +193,29 @@ final class UserController extends AbstractController
             'email' => $usuario->getEmail(),
             'contrnseña' => $usuario->getContraseña(),
         ];
-    
+
         return new JsonResponse(['message' => 'Usuario encontrado', 'data' => $userData], 200);
     }
-    
+
+    #[Route('/listFilms', name: 'app_movies', methods: ['GET'])]
+    public function listAllFilms(EntityManagerInterface $entityManager): JsonResponse
+    {
+
+        $films = $entityManager->getRepository(Peliculas::class)->findAll();
+        $result = [];
+        foreach ($films as $film) {
+            $categories = [];
+            foreach ($film->getRelationCategorias() as $category) {
+                $categories[] = $category->getNombreCategoria();
+            }
+            $result[] = [
+                'title' => $film->getTitulo(),
+                'duration' => $film->getDuracion(),
+                'description' => $film->getDescripcion(),
+                'categories' => $categories,
+                'imageUrl' => $film-> getPortada(),
+            ];
+        }
+        return new JsonResponse(['message' => 'Todas las películas', 'data' => $result]);
+    }
 }
