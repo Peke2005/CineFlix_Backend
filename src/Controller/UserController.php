@@ -113,6 +113,7 @@ final class UserController extends AbstractController
                     'duration' => $movie->getDuracion(),
                     'description' => $movie->getDescripcion(),
                     'categories' => $categories,
+                    'imageUrl' => $movie->getImageUrl(),
                 ];
             }
 
@@ -163,6 +164,7 @@ final class UserController extends AbstractController
                     'duration' => $movie->getDuracion(),
                     'description' => $movie->getDescripcion(),
                     'categories' => $categories,
+                    'imageUrl' => $movie->getImageUrl(),
                 ];
             }
 
