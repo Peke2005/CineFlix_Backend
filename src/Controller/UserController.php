@@ -111,6 +111,7 @@ final class UserController extends AbstractController
                 $result[] = [
                     'title' => $movie->getTitulo(),
                     'duration' => $movie->getDuracion(),
+                    'year' => $movie->getAño(),
                     'description' => $movie->getDescripcion(),
                     'categories' => $categories,
                     'imageUrl' => $movie->getPortada(),
@@ -162,6 +163,7 @@ final class UserController extends AbstractController
                 $result[] = [
                     'title' => $movie->getTitulo(),
                     'duration' => $movie->getDuracion(),
+                    'year' => $movie->getAño(),
                     'description' => $movie->getDescripcion(),
                     'categories' => $categories,
                     'imageUrl' => $movie->getPortada(),
