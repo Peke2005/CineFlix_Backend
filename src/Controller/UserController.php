@@ -11,6 +11,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Exception;
 
 
@@ -35,10 +36,13 @@ final class UserController extends AbstractController
         try {
             $usuario = $request->toArray();
             $entityManager->getRepository(Usuarios::class)->createUser($usuario["nombre"], $usuario["email"], $usuario["pass"]);
-            return new JsonResponse("Usuario Insertado Correctamente!", Response::HTTP_CREATED);
+            return new JsonResponse(["logError" => "Usuario Insertado Correctamente!"], Response::HTTP_CREATED);
+        } catch (UniqueConstraintViolationException $e) {
+            $errorMessage = 'El correo electrónico ya está registrado.';
         } catch (Exception $e) {
-            return new JsonResponse(["status" => false, "id" => null, "logError" => $e->getMessage()], Response::HTTP_NOT_FOUND);
+            $errorMessage = 'Ha ocurrido un error en el servidor. Por favor, inténtalo más tarde.';
         }
+        return new JsonResponse(["status" => false, "id" => null, "logError" => $errorMessage], Response::HTTP_NOT_FOUND);
     }
 
     #[Route('/userLogin', name: 'login_user', methods: ['POST'])]
@@ -217,7 +221,7 @@ final class UserController extends AbstractController
                 'duration' => $film->getDuracion(),
                 'description' => $film->getDescripcion(),
                 'categories' => $categories,
-                'imageUrl' => $film-> getPortada(),
+                'imageUrl' => $film->getPortada(),
             ];
         }
         return new JsonResponse(['message' => 'Todas las películas', 'data' => $result]);
