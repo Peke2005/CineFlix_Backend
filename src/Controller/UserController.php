@@ -13,10 +13,20 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Exception;
+use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 
 final class UserController extends AbstractController
 {
+
+    private $passwordHasher;
+
+    public function __construct(UserPasswordHasherInterface $passwordHasher)
+    {
+        $this->passwordHasher = $passwordHasher;
+    }
+
+
     #[Route('/user', name: 'app_user')]
     public function index(): Response
     {
@@ -38,7 +48,7 @@ final class UserController extends AbstractController
             $entityManager->getRepository(Usuarios::class)->createUser($usuario["nombre"], $usuario["email"], $usuario["pass"]);
             return new JsonResponse(["logError" => "Usuario Insertado Correctamente!"], Response::HTTP_CREATED);
         } catch (UniqueConstraintViolationException $e) {
-            $errorMessage = 'El correo electrónico ya está registrado.';
+            $errorMessage = 'Este correo electrónico ya está registrado.';
         } catch (Exception $e) {
             $errorMessage = 'Ha ocurrido un error en el servidor. Por favor, inténtalo más tarde.';
         }
