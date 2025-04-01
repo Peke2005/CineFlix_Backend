@@ -45,8 +45,9 @@ final class UserController extends AbstractController
     {
         try {
             $usuario = $request->toArray();
-            $entityManager->getRepository(Usuarios::class)->createUser($usuario["nombre"], $usuario["email"], $usuario["pass"]);
-            return new JsonResponse(["logError" => "Usuario Insertado Correctamente!"], Response::HTTP_CREATED);
+            $userRepository = $entityManager->getRepository(Usuarios::class);
+            $userRepository->createUser($usuario["nombre"], $usuario["email"], $usuario["pass"]);
+            return new JsonResponse(["logError" => "Te has registrado correctamente!"], Response::HTTP_CREATED);
         } catch (UniqueConstraintViolationException $e) {
             $errorMessage = 'Este correo electrónico ya está registrado.';
         } catch (Exception $e) {
@@ -60,15 +61,18 @@ final class UserController extends AbstractController
     {
         try {
             $userData = $request->toArray();
-
-            $userFound = $entityManager->getRepository(Usuarios::class)->findOneBy(["email" => $userData["email"], "contraseña" => $userData["pass"]]);
-
+            $userRepository = $entityManager->getRepository(Usuarios::class);
+            $userFound = $userRepository->findOneBy(["email" => $userData["email"]]);
             if ($userFound) {
-                $id = $userFound->getIdUsuario();
-                return new JsonResponse(["status" => true, "id" => $id, "logError" => "Usuario Encontrado!"], Response::HTTP_OK);
+                if ($userRepository->verifyPassword($userData['pass'], $userFound->getContraseña())) {
+                    $id = $userFound->getIdUsuario();
+                    return new JsonResponse(["status" => true, "id" => $id, "logError" => "Has iniciado sesion correctamente!"], Response::HTTP_OK);
+                } else {
+                    throw new Exception(message: "Los datos introducidos no coinciden con ningun usuario existente.");
+                }
+            } else {
+                throw new Exception(message: "Los datos introducidos no coinciden con ningun usuario existente.");
             }
-
-            throw new Exception("Los datos introducidos no coinciden con ningun usuario existente.");
         } catch (Exception $e) {
             return new JsonResponse(["status" => false, "id" => null, "logError" => $e->getMessage()], Response::HTTP_NOT_FOUND);
         }

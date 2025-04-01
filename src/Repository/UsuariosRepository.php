@@ -6,6 +6,7 @@ use App\Entity\Usuarios;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 use Carbon\Carbon;
+use Symfony\Component\PasswordHasher\Hasher\PasswordHasherFactory;
 
 /**
  * @extends ServiceEntityRepository<Usuarios>
@@ -42,6 +43,24 @@ class UsuariosRepository extends ServiceEntityRepository
     //        ;
     //    }
 
+    public function verifyPassword($plainPass, $hashedPass)
+    {
+        $factory = new PasswordHasherFactory([
+            'common' => ['algorithm' => 'bcrypt'],
+        ]);
+        $hasher = $factory->getPasswordHasher('common');
+        return $hasher->verify($hashedPass, $plainPass);
+    }
+
+    public function hashPassword($Password)
+    {
+        $factory = new PasswordHasherFactory([
+            'common' => ['algorithm' => 'bcrypt'],
+        ]);
+        $hasher = $factory->getPasswordHasher('common');
+
+        return $hasher->hash($Password);
+    }
 
     public function createUser($Name, $Email, $Password)
     {
@@ -55,19 +74,15 @@ class UsuariosRepository extends ServiceEntityRepository
             ->setValue("contraseña", ":pass")
             ->setValue('rol', ':rol')
             ->setValue("fecha_registro", ":fecha_registro");
-
-
         $query = $qb->getSQL();
-
         $params = [
             'nombre' => $Name,
             'email' => $Email,
-            'pass' => $Password,
+            'pass' => $this->hashPassword($Password),
             'rol' => $rol,
             'fecha_registro' => $RegistrationDate
         ];
 
         return $this->getEntityManager()->getConnection()->executeQuery($query, $params);
     }
-
 }

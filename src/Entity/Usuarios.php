@@ -20,7 +20,7 @@ class Usuarios
     #[ORM\Column(length: 45)]
     private ?string $email = null;
 
-    #[ORM\Column(length: 45)]
+    #[ORM\Column(length: 60)]
     private ?string $contraseña = null;
 
     #[ORM\Column(length: 45)]
