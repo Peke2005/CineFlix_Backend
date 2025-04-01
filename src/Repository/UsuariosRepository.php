@@ -7,6 +7,7 @@ use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\PasswordHasher\Hasher\PasswordHasherFactory;
 use Carbon\Carbon;
+use Symfony\Component\PasswordHasher\Hasher\PasswordHasherFactory;
 
 /**
  * @extends ServiceEntityRepository<Usuarios>
@@ -73,19 +74,15 @@ class UsuariosRepository extends ServiceEntityRepository
             ->setValue("contraseña", ":pass")
             ->setValue('rol', ':rol')
             ->setValue("fecha_registro", ":fecha_registro");
-
-
         $query = $qb->getSQL();
-
         $params = [
             'nombre' => $Name,
             'email' => $Email,
-            'pass' => $Password,
+            'pass' => $this->hashPassword($Password),
             'rol' => $rol,
             'fecha_registro' => $RegistrationDate
         ];
 
         return $this->getEntityManager()->getConnection()->executeQuery($query, $params);
     }
-
 }
