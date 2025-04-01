@@ -5,6 +5,7 @@ namespace App\Repository;
 use App\Entity\Usuarios;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use Symfony\Component\PasswordHasher\Hasher\PasswordHasherFactory;
 use Carbon\Carbon;
 use Symfony\Component\PasswordHasher\Hasher\PasswordHasherFactory;
 
@@ -61,7 +62,6 @@ class UsuariosRepository extends ServiceEntityRepository
 
         return $hasher->hash($Password);
     }
-
     public function createUser($Name, $Email, $Password)
     {
         $rol = "usuario";
