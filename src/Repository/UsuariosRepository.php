@@ -5,6 +5,7 @@ namespace App\Repository;
 use App\Entity\Usuarios;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use Symfony\Component\PasswordHasher\Hasher\PasswordHasherFactory;
 use Carbon\Carbon;
 
 /**
@@ -42,7 +43,24 @@ class UsuariosRepository extends ServiceEntityRepository
     //        ;
     //    }
 
+    public function verifyPassword($plainPass, $hashedPass)
+    {
+        $factory = new PasswordHasherFactory([
+            'common' => ['algorithm' => 'bcrypt'],
+        ]);
+        $hasher = $factory->getPasswordHasher('common');
+        return $hasher->verify($hashedPass, $plainPass);
+    }
 
+    public function hashPassword($Password)
+    {
+        $factory = new PasswordHasherFactory([
+            'common' => ['algorithm' => 'bcrypt'],
+        ]);
+        $hasher = $factory->getPasswordHasher('common');
+
+        return $hasher->hash($Password);
+    }
     public function createUser($Name, $Email, $Password)
     {
         $rol = "usuario";
