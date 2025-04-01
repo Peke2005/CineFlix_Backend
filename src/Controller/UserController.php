@@ -11,11 +11,22 @@ use Symfony\Component\Routing\Attribute\Route;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Exception;
+use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 
 final class UserController extends AbstractController
 {
+
+    private $passwordHasher;
+
+    public function __construct(UserPasswordHasherInterface $passwordHasher)
+    {
+        $this->passwordHasher = $passwordHasher;
+    }
+
+
     #[Route('/user', name: 'app_user')]
     public function index(): Response
     {
@@ -34,11 +45,15 @@ final class UserController extends AbstractController
     {
         try {
             $usuario = $request->toArray();
-            $entityManager->getRepository(Usuarios::class)->createUser($usuario["nombre"], $usuario["email"], $usuario["pass"]);
-            return new JsonResponse("Usuario Insertado Correctamente!", Response::HTTP_CREATED);
+            $userRepository = $entityManager->getRepository(Usuarios::class);
+            $userRepository->createUser($usuario["nombre"], $usuario["email"], $usuario["pass"]);
+            return new JsonResponse(["logError" => "Te has registrado correctamente!"], Response::HTTP_CREATED);
+        } catch (UniqueConstraintViolationException $e) {
+            $errorMessage = 'Este correo electrónico ya está registrado.';
         } catch (Exception $e) {
-            return new JsonResponse(["status" => false, "id" => null, "logError" => $e->getMessage()], Response::HTTP_NOT_FOUND);
+            $errorMessage = 'Ha ocurrido un error en el servidor. Por favor, inténtalo más tarde.';
         }
+        return new JsonResponse(["status" => false, "id" => null, "logError" => $errorMessage], Response::HTTP_NOT_FOUND);
     }
 
     #[Route('/userLogin', name: 'login_user', methods: ['POST'])]
@@ -46,15 +61,18 @@ final class UserController extends AbstractController
     {
         try {
             $userData = $request->toArray();
-
-            $userFound = $entityManager->getRepository(Usuarios::class)->findOneBy(["email" => $userData["email"], "contraseña" => $userData["pass"]]);
-
+            $userRepository = $entityManager->getRepository(Usuarios::class);
+            $userFound = $userRepository->findOneBy(["email" => $userData["email"]]);
             if ($userFound) {
-                $id = $userFound->getIdUsuario();
-                return new JsonResponse(["status" => true, "id" => $id, "logError" => "Usuario Encontrado!"], Response::HTTP_OK);
+                if ($userRepository->verifyPassword($userData['pass'], $userFound->getContraseña())) {
+                    $id = $userFound->getIdUsuario();
+                    return new JsonResponse(["status" => true, "id" => $id, "logError" => "Has iniciado sesion correctamente!"], Response::HTTP_OK);
+                } else {
+                    throw new Exception(message: "Los datos introducidos no coinciden con ningun usuario existente.");
+                }
+            } else {
+                throw new Exception(message: "Los datos introducidos no coinciden con ningun usuario existente.");
             }
-
-            throw new Exception("Los datos introducidos no coinciden con ningun usuario existente.");
         } catch (Exception $e) {
             return new JsonResponse(["status" => false, "id" => null, "logError" => $e->getMessage()], Response::HTTP_NOT_FOUND);
         }
@@ -218,7 +236,7 @@ final class UserController extends AbstractController
                 'year' => $film->getAño(),
                 'description' => $film->getDescripcion(),
                 'categories' => $categories,
-                'imageUrl' => $film-> getPortada(),
+                'imageUrl' => $film->getPortada(),
             ];
         }
         return new JsonResponse(['message' => 'Todas las películas', 'data' => $result]);
