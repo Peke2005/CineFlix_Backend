@@ -7,7 +7,6 @@ use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\PasswordHasher\Hasher\PasswordHasherFactory;
 use Carbon\Carbon;
-use Symfony\Component\PasswordHasher\Hasher\PasswordHasherFactory;
 
 /**
  * @extends ServiceEntityRepository<Usuarios>
