@@ -132,6 +132,7 @@ final class UserController extends AbstractController
                     'year' => $movie->getAño(),
                     'description' => $movie->getDescripcion(),
                     'categories' => $categories,
+                    'trailer' => $movie->getTrailer(),
                     'imageUrl' => $movie->getPortada(),
                 ];
             }
