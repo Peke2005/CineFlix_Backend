@@ -122,8 +122,18 @@ final class UserController extends AbstractController
             $result = [];
             foreach ($movies as $movie) {
                 $categories = [];
+                $actors = [];
+
                 foreach ($movie->getRelationCategorias() as $category) {
                     $categories[] = $category->getNombreCategoria();
+                }
+
+                foreach ($movie->getActores() as $actor) {
+                    $actors[] = [
+                        'name' => $actor->getNombre(),
+                        'birthdate' => $actor->getFechaNacimiento(),
+                        'nationality' => $actor->getNacionalidad()
+                    ];
                 }
 
                 $result[] = [
@@ -134,7 +144,7 @@ final class UserController extends AbstractController
                     'categories' => $categories,
                     'trailer' => $movie->getTrailer(),
                     'imageUrl' => $movie->getPortada(),
-                    'actors' => $movie->getActores()->toArray()
+                    'actors' => $actors
                 ];
             }
             return new JsonResponse(['message' => 'Peliculas encontradas', 'data' => $result]);
