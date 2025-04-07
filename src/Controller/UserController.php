@@ -134,9 +134,9 @@ final class UserController extends AbstractController
                     'categories' => $categories,
                     'trailer' => $movie->getTrailer(),
                     'imageUrl' => $movie->getPortada(),
+                    'actors' => $movie->getActores()->toArray()
                 ];
             }
-
             return new JsonResponse(['message' => 'Peliculas encontradas', 'data' => $result]);
         } else {
             return new JsonResponse(['message' => 'No se encontro ninguna pelicula.']);
