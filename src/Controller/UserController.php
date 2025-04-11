@@ -231,6 +231,34 @@ final class UserController extends AbstractController
         return new JsonResponse(['message' => 'Usuario encontrado', 'data' => $userData], 200);
     }
 
+    #[Route('/updateUser', name: 'app_user_update', methods: ['POST'])]
+    public function updateUser(Request $request, EntityManagerInterface $entityManager): JsonResponse
+    {
+        $data = json_decode($request->getContent(), true);
+
+        $id = $data['id'] ?? null;
+        $email = $data['email'] ?? null;
+        $contraseña = $data['contraseña'] ?? null;
+
+        if (!$id || !$email || !$contraseña) {
+            return new JsonResponse(['message' => 'Faltan datos requeridos.'], 400);
+        }
+
+        $usuario = $entityManager->getRepository(Usuarios::class)->find($id);
+
+        if (!$usuario) {
+            return new JsonResponse(['message' => 'Usuario no encontrado.'], 404);
+        }
+
+        $usuario->setEmail($email);
+        $usuario->setContraseña($contraseña); // Asegúrate de encriptarla si manejas seguridad real
+
+        $entityManager->persist($usuario);
+        $entityManager->flush();
+
+        return new JsonResponse(['message' => 'Datos del usuario actualizados correctamente.']);
+    }
+
     #[Route('/listFilms', name: 'app_movies', methods: ['GET'])]
     public function listAllFilms(EntityManagerInterface $entityManager): JsonResponse
     {
