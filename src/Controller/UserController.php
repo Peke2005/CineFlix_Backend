@@ -132,7 +132,8 @@ final class UserController extends AbstractController
                     $actors[] = [
                         'name' => $actor->getNombre(),
                         'birthdate' => $actor->getFechaNacimiento(),
-                        'nationality' => $actor->getNacionalidad()
+                        'nationality' => $actor->getNacionalidad(),
+                        'foto' => $actor->getFoto()
                     ];
                 }
 

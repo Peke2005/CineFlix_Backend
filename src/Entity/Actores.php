@@ -25,6 +25,8 @@ class Actores
     #[ORM\Column(length: 45)]
     private ?string $nacionalidad = null;
 
+    #[ORM\Column(length: 255)]
+    private ?string $foto = null;
     /**
      * @var Collection<int, Peliculas>
      */
@@ -52,6 +54,17 @@ class Actores
     public function setNombre(string $nombre): static
     {
         $this->nombre = $nombre;
+        return $this;
+    }
+
+    public function getFoto(): ?string
+    {
+        return $this->foto;
+    }
+
+    public function setFoto(string $foto): static
+    {
+        $this->foto = $foto;
         return $this;
     }
 

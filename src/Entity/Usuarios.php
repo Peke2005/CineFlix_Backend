@@ -29,6 +29,9 @@ class Usuarios
     #[ORM\Column(type: Types::DATETIME_MUTABLE)]
     private ?\DateTimeInterface $fecha_registro = null;
 
+    #[ORM\Column(type: Types::BLOB, nullable: true)]
+    private ?string $foto_perfil = null;
+
     public function getIdUsuario(): ?int
     {
         return $this->id_usuario;
@@ -90,6 +93,18 @@ class Usuarios
     public function setFechaRegistro(\DateTimeInterface $fecha_registro): static
     {
         $this->fecha_registro = $fecha_registro;
+
+        return $this;
+    }
+
+    public function getFotoPerfil(): ?string
+    {
+        return $this->foto_perfil;
+    }
+
+    public function setFotoPerfil(?string $foto_perfil): static
+    {
+        $this->foto_perfil = $foto_perfil;
 
         return $this;
     }
