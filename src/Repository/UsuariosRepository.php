@@ -61,7 +61,7 @@ class UsuariosRepository extends ServiceEntityRepository
 
         return $hasher->hash($Password);
     }
-    public function createUser($Name, $Email, $Password)
+    public function createUser($Name, $Email, $Password, $imagen)
     {
         $rol = "usuario";
         $RegistrationDate = Carbon::now();
@@ -72,14 +72,17 @@ class UsuariosRepository extends ServiceEntityRepository
             ->setValue("email", ":email")
             ->setValue("contraseña", ":pass")
             ->setValue('rol', ':rol')
-            ->setValue("fecha_registro", ":fecha_registro");
+            ->setValue("fecha_registro", ":fecha_registro")
+            ->setValue("foto_perfil", ":foto_perfil");
+
         $query = $qb->getSQL();
         $params = [
             'nombre' => $Name,
             'email' => $Email,
             'pass' => $this->hashPassword($Password),
             'rol' => $rol,
-            'fecha_registro' => $RegistrationDate
+            'fecha_registro' => $RegistrationDate,
+            'foto_perfil' => $imagen
         ];
 
         return $this->getEntityManager()->getConnection()->executeQuery($query, $params);
