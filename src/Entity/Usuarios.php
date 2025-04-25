@@ -30,7 +30,7 @@ class Usuarios
     private ?\DateTimeInterface $fecha_registro = null;
 
     #[ORM\Column(type: Types::BLOB, nullable: true)]
-    private ?string $foto_perfil = null;
+    private $foto_perfil = null;
 
     public function getIdUsuario(): ?int
     {
@@ -97,15 +97,14 @@ class Usuarios
         return $this;
     }
 
-    public function getFotoPerfil(): ?string
+    public function getFotoPerfil()
     {
         return $this->foto_perfil;
     }
 
-    public function setFotoPerfil(?string $foto_perfil): static
+    public function setFotoPerfil($foto_perfil): static
     {
         $this->foto_perfil = $foto_perfil;
-
         return $this;
     }
 }
