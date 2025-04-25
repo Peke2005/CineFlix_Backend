@@ -46,12 +46,25 @@ final class UserController extends AbstractController
         try {
             $usuario = $request->toArray();
             $userRepository = $entityManager->getRepository(Usuarios::class);
-            $userRepository->createUser($usuario["nombre"], $usuario["email"], $usuario["pass"]);
+
+            $rutaImagen = 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4b/User-Pict-Profil.svg/1365px-User-Pict-Profil.svg.png';
+
+             $ch = curl_init($rutaImagen);
+             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+             curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true); 
+             $imagenContent = curl_exec($ch);
+             curl_close($ch);
+ 
+             if ($imagenContent === false) {
+                 throw new Exception('No se pudo obtener la imagen desde la URL.');
+             }
+
+            $userRepository->createUser($usuario["nombre"], $usuario["email"], $usuario["pass"], $imagenContent);
             return new JsonResponse(["logError" => "Te has registrado correctamente!"], Response::HTTP_CREATED);
         } catch (UniqueConstraintViolationException $e) {
             $errorMessage = 'Este correo electrónico ya está registrado.';
         } catch (Exception $e) {
-            $errorMessage = 'Ha ocurrido un error en el servidor. Por favor, inténtalo más tarde.';
+            $errorMessage = $e->getMessage();
         }
         return new JsonResponse(["status" => false, "id" => null, "logError" => $errorMessage], Response::HTTP_NOT_FOUND);
     }
@@ -66,7 +79,8 @@ final class UserController extends AbstractController
             if ($userFound) {
                 if ($userRepository->verifyPassword($userData['pass'], $userFound->getContraseña())) {
                     $id = $userFound->getIdUsuario();
-                    return new JsonResponse(["status" => true, "id" => $id, "logError" => "Has iniciado sesion correctamente!"], Response::HTTP_OK);
+                    $rol = $userFound->getRol();
+                    return new JsonResponse(["status" => true, "rol" => $rol, "id" => $id, "logError" => "Has iniciado sesion correctamente!"], Response::HTTP_OK);
                 } else {
                     throw new Exception(message: "Los datos introducidos no coinciden con ningun usuario existente.");
                 }
@@ -132,7 +146,8 @@ final class UserController extends AbstractController
                     $actors[] = [
                         'name' => $actor->getNombre(),
                         'birthdate' => $actor->getFechaNacimiento(),
-                        'nationality' => $actor->getNacionalidad()
+                        'nationality' => $actor->getNacionalidad(),
+                        'foto' => $actor->getFoto()
                     ];
                 }
 
@@ -228,6 +243,34 @@ final class UserController extends AbstractController
         ];
 
         return new JsonResponse(['message' => 'Usuario encontrado', 'data' => $userData], 200);
+    }
+
+    #[Route('/updateUser', name: 'app_user_update', methods: ['POST'])]
+    public function updateUser(Request $request, EntityManagerInterface $entityManager): JsonResponse
+    {
+        $data = json_decode($request->getContent(), true);
+
+        $id = $data['id'] ?? null;
+        $email = $data['email'] ?? null;
+        $contraseña = $data['contraseña'] ?? null;
+
+        if (!$id || !$email || !$contraseña) {
+            return new JsonResponse(['message' => 'Faltan datos requeridos.'], 400);
+        }
+
+        $usuario = $entityManager->getRepository(Usuarios::class)->find($id);
+
+        if (!$usuario) {
+            return new JsonResponse(['message' => 'Usuario no encontrado.'], 404);
+        }
+
+        $usuario->setEmail($email);
+        $usuario->setContraseña($contraseña); // Asegúrate de encriptarla si manejas seguridad real
+
+        $entityManager->persist($usuario);
+        $entityManager->flush();
+
+        return new JsonResponse(['message' => 'Datos del usuario actualizados correctamente.']);
     }
 
     #[Route('/listFilms', name: 'app_movies', methods: ['GET'])]
