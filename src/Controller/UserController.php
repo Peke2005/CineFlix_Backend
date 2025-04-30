@@ -49,15 +49,15 @@ final class UserController extends AbstractController
 
             $rutaImagen = 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4b/User-Pict-Profil.svg/1365px-User-Pict-Profil.svg.png';
 
-             $ch = curl_init($rutaImagen);
-             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-             curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true); 
-             $imagenContent = curl_exec($ch);
-             curl_close($ch);
- 
-             if ($imagenContent === false) {
-                 throw new Exception('No se pudo obtener la imagen desde la URL.');
-             }
+            $ch = curl_init($rutaImagen);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            $imagenContent = curl_exec($ch);
+            curl_close($ch);
+
+            if ($imagenContent === false) {
+                throw new Exception('No se pudo obtener la imagen desde la URL.');
+            }
 
             $userRepository->createUser($usuario["nombre"], $usuario["email"], $usuario["pass"], $imagenContent);
             return new JsonResponse(["logError" => "Te has registrado correctamente!"], Response::HTTP_CREATED);
@@ -284,15 +284,83 @@ final class UserController extends AbstractController
             foreach ($film->getRelationCategorias() as $category) {
                 $categories[] = $category->getNombreCategoria();
             }
+            foreach ($film->getActores() as $actor) {
+                $actors[] = [
+                    'name' => $actor->getNombre(),
+                    'birthdate' => $actor->getFechaNacimiento(),
+                    'nationality' => $actor->getNacionalidad(),
+                    'foto' => $actor->getFoto()
+                ];
+            }
+
             $result[] = [
                 'title' => $film->getTitulo(),
                 'duration' => $film->getDuracion(),
                 'year' => $film->getAño(),
                 'description' => $film->getDescripcion(),
                 'categories' => $categories,
+                'trailer' => $film->getTrailer(),
                 'imageUrl' => $film->getPortada(),
+                'actors' => $actors
             ];
         }
         return new JsonResponse(['message' => 'Todas las películas', 'data' => $result]);
+    }
+
+
+    #[Route('/createFilm', name: 'create_pelicula', methods: ['POST'])]
+    public function create(Request $request, EntityManagerInterface $em): JsonResponse
+    {
+        $data = json_decode($request->getContent(), true);
+
+        $pelicula = new Peliculas();
+        $pelicula->setTitulo($data['titulo']);
+        $pelicula->setDescripcion($data['descripcion']);
+        $pelicula->setAño($data['año']);
+        $pelicula->setDuracion((int)$data['duracion']);
+        $pelicula->setPortada($data['portada']);
+        $pelicula->setTrailer($data['trailer']);
+        $em->persist($pelicula);
+        $em->flush();
+
+        return $this->json(['message' => 'Película creada'], Response::HTTP_CREATED);
+    }
+
+    #[Route('/updateFilm/{id}', name: 'update_pelicula', methods: ['PUT'])]
+    public function update(int $id, Request $request, EntityManagerInterface $em): JsonResponse
+    {
+        $pelicula = $em->getRepository(Peliculas::class)->find($id);
+
+        if (!$pelicula) {
+            return $this->json(['message' => 'Película no encontrada'], Response::HTTP_NOT_FOUND);
+        }
+
+        $data = json_decode($request->getContent(), true);
+
+        $pelicula->setTitulo($data['titulo']);
+        $pelicula->setDescripcion($data['descripcion']);
+        $pelicula->setAño($data['año']);
+        $pelicula->setDuracion((int)$data['duracion']);
+        $pelicula->setPortada($data['portada']);
+        $pelicula->setTrailer($data['trailer']);
+
+        $em->flush();
+
+        return $this->json(['message' => 'Película actualizada']);
+    }
+
+    #[Route('/deleteFilm/{id}', name: 'delete_pelicula', methods: ['DELETE'])]
+    public function delete(int $id, EntityManagerInterface $em): JsonResponse
+    {
+        $pelicula = $em->getRepository(Peliculas::class)->find($id);
+
+        if (!$pelicula) {
+            return $this->json(['message' => 'Película no encontrada'], Response::HTTP_NOT_FOUND);
+        }
+
+        $em->remove($pelicula);
+        $em->flush();
+
+        return $this->json(['message' => 'Película eliminada']);
     }
 }
