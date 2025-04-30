@@ -49,15 +49,15 @@ final class UserController extends AbstractController
 
             $rutaImagen = 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4b/User-Pict-Profil.svg/1365px-User-Pict-Profil.svg.png';
 
-             $ch = curl_init($rutaImagen);
-             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-             curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true); 
-             $imagenContent = curl_exec($ch);
-             curl_close($ch);
- 
-             if ($imagenContent === false) {
-                 throw new Exception('No se pudo obtener la imagen desde la URL.');
-             }
+            $ch = curl_init($rutaImagen);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            $imagenContent = curl_exec($ch);
+            curl_close($ch);
+
+            if ($imagenContent === false) {
+                throw new Exception('No se pudo obtener la imagen desde la URL.');
+            }
 
             $userRepository->createUser($usuario["nombre"], $usuario["email"], $usuario["pass"], $imagenContent);
             return new JsonResponse(["logError" => "Te has registrado correctamente!"], Response::HTTP_CREATED);
@@ -234,12 +234,13 @@ final class UserController extends AbstractController
             return new JsonResponse(['message' => 'No se encontro el usuario especificado.'], 404);
         }
 
-        // Devolver información del usuario
+        $foto = $usuario->getFotoPerfil();
         $userData = [
             'id' => $usuario->getIdUsuario(),
             'nombre' => $usuario->getNombre(),
             'email' => $usuario->getEmail(),
-            'contrnseña' => $usuario->getContraseña(),
+            'contraseña' => $usuario->getContraseña(),
+            'imagen' => $foto ? base64_encode(stream_get_contents($foto)) : null,
         ];
 
         return new JsonResponse(['message' => 'Usuario encontrado', 'data' => $userData], 200);
@@ -294,5 +295,38 @@ final class UserController extends AbstractController
             ];
         }
         return new JsonResponse(['message' => 'Todas las películas', 'data' => $result]);
+    }
+
+
+    #[Route('/uploadImage', name: 'upload_image', methods: ['POST'])]
+    public function uploadImage(Request $request, EntityManagerInterface $entityManager): JsonResponse
+    {
+        $id = $request->request->get('id');
+        $file = $request->files->get('imagen');
+
+        if (!$file || !$id) {
+            return new JsonResponse(['message' => 'Faltan datos.'], 400);
+        }
+
+        $allowedMimeTypes = ['image/jpeg', 'image/png'];
+        if (!in_array($file->getMimeType(), $allowedMimeTypes)) {
+            return new JsonResponse(['message' => 'Solo se permiten imágenes JPG o PNG.'], 400);
+        }
+
+        $usuario = $entityManager->getRepository(Usuarios::class)->find($id);
+        if (!$usuario) {
+            return new JsonResponse(['message' => 'Usuario no encontrado.'], 404);
+        }
+
+        $stream = fopen($file->getPathname(), 'rb');
+        $contenido = stream_get_contents($stream);
+        fclose($stream);
+
+        $usuario->setFotoPerfil($contenido); // ❗ SIN base64_encode()
+
+        $entityManager->persist($usuario);
+        $entityManager->flush();
+
+        return new JsonResponse(['message' => 'Imagen actualizada correctamente.'], 200);
     }
 }
