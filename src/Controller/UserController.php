@@ -47,26 +47,35 @@ final class UserController extends AbstractController
             $usuario = $request->toArray();
             $userRepository = $entityManager->getRepository(Usuarios::class);
 
-            $rutaImagen = 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4b/User-Pict-Profil.svg/1365px-User-Pict-Profil.svg.png';
+            $rutaImagen = 'assets/img/usuario.png';
 
-            $ch = curl_init($rutaImagen);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-            $imagenContent = curl_exec($ch);
-            curl_close($ch);
+            $imagenContent = file_get_contents($rutaImagen);
 
             if ($imagenContent === false) {
-                throw new Exception('No se pudo obtener la imagen desde la URL.');
+                throw new Exception('No se pudo leer la imagen desde la ruta especificada.');
             }
 
-            $userRepository->createUser($usuario["nombre"], $usuario["email"], $usuario["pass"], $imagenContent);
-            return new JsonResponse(["logError" => "Te has registrado correctamente!"], Response::HTTP_CREATED);
+            $userRepository->createUser(
+                $usuario["nombre"],
+                $usuario["email"],
+                $usuario["pass"],
+                $imagenContent
+            );
+
+            return new JsonResponse(
+                ["logError" => "Te has registrado correctamente!"],
+                Response::HTTP_CREATED
+            );
         } catch (UniqueConstraintViolationException $e) {
             $errorMessage = 'Este correo electrónico ya está registrado.';
         } catch (Exception $e) {
             $errorMessage = $e->getMessage();
         }
-        return new JsonResponse(["status" => false, "id" => null, "logError" => $errorMessage], Response::HTTP_NOT_FOUND);
+
+        return new JsonResponse(
+            ["status" => false, "id" => null, "logError" => $errorMessage],
+            Response::HTTP_NOT_FOUND
+        );
     }
 
     #[Route('/userLogin', name: 'login_user', methods: ['POST'])]
@@ -234,12 +243,13 @@ final class UserController extends AbstractController
             return new JsonResponse(['message' => 'No se encontro el usuario especificado.'], 404);
         }
 
-        // Devolver información del usuario
+        $foto = $usuario->getFotoPerfil();
         $userData = [
             'id' => $usuario->getIdUsuario(),
             'nombre' => $usuario->getNombre(),
             'email' => $usuario->getEmail(),
-            'contrnseña' => $usuario->getContraseña(),
+            'contraseña' => $usuario->getContraseña(),
+            'imagen' => $foto ? base64_encode(stream_get_contents($foto)) : null,
         ];
 
         return new JsonResponse(['message' => 'Usuario encontrado', 'data' => $userData], 200);
@@ -308,6 +318,7 @@ final class UserController extends AbstractController
     }
 
 
+
     #[Route('/createFilm', name: 'create_pelicula', methods: ['POST'])]
     public function create(Request $request, EntityManagerInterface $em): JsonResponse
     {
@@ -362,5 +373,36 @@ final class UserController extends AbstractController
         $em->flush();
 
         return $this->json(['message' => 'Película eliminada']);
+    }
+    #[Route('/uploadImage', name: 'upload_image', methods: ['POST'])]
+    public function uploadImage(Request $request, EntityManagerInterface $entityManager): JsonResponse
+    {
+        $id = $request->request->get('id');
+        $file = $request->files->get('imagen');
+
+        if (!$file || !$id) {
+            return new JsonResponse(['message' => 'Faltan datos.'], 400);
+        }
+
+        $allowedMimeTypes = ['image/jpeg', 'image/png'];
+        if (!in_array($file->getMimeType(), $allowedMimeTypes)) {
+            return new JsonResponse(['message' => 'Solo se permiten imágenes JPG o PNG.'], 400);
+        }
+
+        $usuario = $entityManager->getRepository(Usuarios::class)->find($id);
+        if (!$usuario) {
+            return new JsonResponse(['message' => 'Usuario no encontrado.'], 404);
+        }
+
+        $stream = fopen($file->getPathname(), 'rb');
+        $contenido = stream_get_contents($stream);
+        fclose($stream);
+
+        $usuario->setFotoPerfil($contenido); // ❗ SIN base64_encode()
+
+        $entityManager->persist($usuario);
+        $entityManager->flush();
+
+        return new JsonResponse(['message' => 'Imagen actualizada correctamente.'], 200);
     }
 }
