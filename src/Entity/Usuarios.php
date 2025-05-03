@@ -5,9 +5,10 @@ namespace App\Entity;
 use App\Repository\UsuariosRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 
 #[ORM\Entity(repositoryClass: UsuariosRepository::class)]
-class Usuarios
+class Usuarios implements PasswordAuthenticatedUserInterface
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -61,6 +62,7 @@ class Usuarios
         return $this;
     }
 
+    
     public function getContraseña(): ?string
     {
         return $this->contraseña;
@@ -106,5 +108,10 @@ class Usuarios
     {
         $this->foto_perfil = $foto_perfil;
         return $this;
+    }
+
+    public function getPassword(): ?string
+    {
+        return null;
     }
 }

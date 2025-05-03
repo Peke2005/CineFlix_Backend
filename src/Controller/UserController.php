@@ -256,8 +256,8 @@ final class UserController extends AbstractController
         return new JsonResponse(['message' => 'Usuario encontrado', 'data' => $userData], 200);
     }
 
-    #[Route('/updateUser', name: 'app_user_update', methods: ['POST'])]
-    public function updateUser(Request $request, EntityManagerInterface $entityManager): JsonResponse
+    #[Route('/updateUser', name: 'app_user_update', methods: ['PUT'])]
+    public function updateUser(Request $request, EntityManagerInterface $entityManager, UserPasswordHasherInterface $passwordHasher): JsonResponse
     {
         $data = json_decode($request->getContent(), true);
 
@@ -270,12 +270,14 @@ final class UserController extends AbstractController
         }
 
         $usuario = $entityManager->getRepository(Usuarios::class)->find($id);
+
         if (!$usuario) {
             return new JsonResponse(['message' => 'Usuario no encontrado.'], 404);
         }
 
         $usuario->setEmail($email);
-        $usuario->setContraseña($contraseña);
+        $hashedPassword = $passwordHasher->hashPassword($usuario, $contraseña);
+        $usuario->setContraseña($hashedPassword);
 
         $entityManager->persist($usuario);
         $entityManager->flush();
