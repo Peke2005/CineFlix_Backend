@@ -13,6 +13,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Exception;
+use Symfony\Component\HttpFoundation\File\Exception\FileException;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 
@@ -47,26 +48,35 @@ final class UserController extends AbstractController
             $usuario = $request->toArray();
             $userRepository = $entityManager->getRepository(Usuarios::class);
 
-            $rutaImagen = 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4b/User-Pict-Profil.svg/1365px-User-Pict-Profil.svg.png';
+            $rutaImagen = 'assets/img/usuario.png';
 
-            $ch = curl_init($rutaImagen);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-            $imagenContent = curl_exec($ch);
-            curl_close($ch);
+            $imagenContent = file_get_contents($rutaImagen);
 
             if ($imagenContent === false) {
-                throw new Exception('No se pudo obtener la imagen desde la URL.');
+                throw new Exception('No se pudo leer la imagen desde la ruta especificada.');
             }
 
-            $userRepository->createUser($usuario["nombre"], $usuario["email"], $usuario["pass"], $imagenContent);
-            return new JsonResponse(["logError" => "Te has registrado correctamente!"], Response::HTTP_CREATED);
+            $userRepository->createUser(
+                $usuario["nombre"],
+                $usuario["email"],
+                $usuario["pass"],
+                $imagenContent
+            );
+
+            return new JsonResponse(
+                ["logError" => "Te has registrado correctamente!"],
+                Response::HTTP_CREATED
+            );
         } catch (UniqueConstraintViolationException $e) {
             $errorMessage = 'Este correo electrónico ya está registrado.';
         } catch (Exception $e) {
             $errorMessage = $e->getMessage();
         }
-        return new JsonResponse(["status" => false, "id" => null, "logError" => $errorMessage], Response::HTTP_NOT_FOUND);
+
+        return new JsonResponse(
+            ["status" => false, "id" => null, "logError" => $errorMessage],
+            Response::HTTP_NOT_FOUND
+        );
     }
 
     #[Route('/userLogin', name: 'login_user', methods: ['POST'])]
@@ -246,7 +256,7 @@ final class UserController extends AbstractController
         return new JsonResponse(['message' => 'Usuario encontrado', 'data' => $userData], 200);
     }
 
-    #[Route('/updateUser', name: 'app_user_update', methods: ['PUT'])]
+    #[Route('/updateUser', name: 'app_user_update', methods: ['POST'])]
     public function updateUser(Request $request, EntityManagerInterface $entityManager): JsonResponse
     {
         $data = json_decode($request->getContent(), true);
@@ -260,13 +270,12 @@ final class UserController extends AbstractController
         }
 
         $usuario = $entityManager->getRepository(Usuarios::class)->find($id);
-
         if (!$usuario) {
             return new JsonResponse(['message' => 'Usuario no encontrado.'], 404);
         }
 
         $usuario->setEmail($email);
-        $usuario->setContraseña($contraseña); // ⚠️ Si usas contraseñas reales, aquí deberías encriptar
+        $usuario->setContraseña($contraseña);
 
         $entityManager->persist($usuario);
         $entityManager->flush();
@@ -285,19 +294,86 @@ final class UserController extends AbstractController
             foreach ($film->getRelationCategorias() as $category) {
                 $categories[] = $category->getNombreCategoria();
             }
+            foreach ($film->getActores() as $actor) {
+                $actors[] = [
+                    'name' => $actor->getNombre(),
+                    'birthdate' => $actor->getFechaNacimiento(),
+                    'nationality' => $actor->getNacionalidad(),
+                    'foto' => $actor->getFoto()
+                ];
+            }
+
             $result[] = [
                 'title' => $film->getTitulo(),
                 'duration' => $film->getDuracion(),
                 'year' => $film->getAño(),
                 'description' => $film->getDescripcion(),
                 'categories' => $categories,
+                'trailer' => $film->getTrailer(),
                 'imageUrl' => $film->getPortada(),
+                'actors' => $actors
             ];
         }
         return new JsonResponse(['message' => 'Todas las películas', 'data' => $result]);
     }
 
 
+
+    #[Route('/createFilm', name: 'create_pelicula', methods: ['POST'])]
+    public function create(Request $request, EntityManagerInterface $em): JsonResponse
+    {
+        $data = json_decode($request->getContent(), true);
+
+        $pelicula = new Peliculas();
+        $pelicula->setTitulo($data['titulo']);
+        $pelicula->setDescripcion($data['descripcion']);
+        $pelicula->setAño($data['año']);
+        $pelicula->setDuracion((int)$data['duracion']);
+        $pelicula->setPortada($data['portada']);
+        $pelicula->setTrailer($data['trailer']);
+        $em->persist($pelicula);
+        $em->flush();
+
+        return $this->json(['message' => 'Película creada'], Response::HTTP_CREATED);
+    }
+
+    #[Route('/updateFilm/{id}', name: 'update_pelicula', methods: ['PUT'])]
+    public function update(int $id, Request $request, EntityManagerInterface $em): JsonResponse
+    {
+        $pelicula = $em->getRepository(Peliculas::class)->find($id);
+
+        if (!$pelicula) {
+            return $this->json(['message' => 'Película no encontrada'], Response::HTTP_NOT_FOUND);
+        }
+
+        $data = json_decode($request->getContent(), true);
+
+        $pelicula->setTitulo($data['titulo']);
+        $pelicula->setDescripcion($data['descripcion']);
+        $pelicula->setAño($data['año']);
+        $pelicula->setDuracion((int)$data['duracion']);
+        $pelicula->setPortada($data['portada']);
+        $pelicula->setTrailer($data['trailer']);
+
+        $em->flush();
+
+        return $this->json(['message' => 'Película actualizada']);
+    }
+
+    #[Route('/deleteFilm/{id}', name: 'delete_pelicula', methods: ['DELETE'])]
+    public function delete(int $id, EntityManagerInterface $em): JsonResponse
+    {
+        $pelicula = $em->getRepository(Peliculas::class)->find($id);
+
+        if (!$pelicula) {
+            return $this->json(['message' => 'Película no encontrada'], Response::HTTP_NOT_FOUND);
+        }
+
+        $em->remove($pelicula);
+        $em->flush();
+
+        return $this->json(['message' => 'Película eliminada']);
+    }
     #[Route('/uploadImage', name: 'upload_image', methods: ['POST'])]
     public function uploadImage(Request $request, EntityManagerInterface $entityManager): JsonResponse
     {
