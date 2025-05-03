@@ -246,7 +246,7 @@ final class UserController extends AbstractController
         return new JsonResponse(['message' => 'Usuario encontrado', 'data' => $userData], 200);
     }
 
-    #[Route('/updateUser', name: 'app_user_update', methods: ['POST'])]
+    #[Route('/updateUser', name: 'app_user_update', methods: ['PUT'])]
     public function updateUser(Request $request, EntityManagerInterface $entityManager): JsonResponse
     {
         $data = json_decode($request->getContent(), true);
@@ -266,7 +266,7 @@ final class UserController extends AbstractController
         }
 
         $usuario->setEmail($email);
-        $usuario->setContraseña($contraseña); // Asegúrate de encriptarla si manejas seguridad real
+        $usuario->setContraseña($contraseña); // ⚠️ Si usas contraseñas reales, aquí deberías encriptar
 
         $entityManager->persist($usuario);
         $entityManager->flush();
