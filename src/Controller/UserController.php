@@ -13,6 +13,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Exception;
+use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\File\Exception\FileException;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
@@ -102,27 +103,31 @@ final class UserController extends AbstractController
         }
     }
 
-    #[Route('/deleteUser', name: 'delete_user', methods: ['DELETE'])]
-
-    public function deleteUser(EntityManagerInterface $entityManager, Request $request)
+    #[Route('/deleteUser', name: 'deleteUser', methods: ['DELETE'])]
+    public function deleteUser(EntityManagerInterface $entityManager, Request $request): JsonResponse
     {
-
         try {
-            $userData = $request->toArray();
-            $userFound = $entityManager->getRepository(Usuarios::class)->findOneBy(["id_usuario" => $userData["id"]]);
-            if ($userFound) {
-                $entityManager->remove($userFound);
+            $id = $request->query->get('id');
 
-                $entityManager->flush();
-                return new JsonResponse("Se ha borrado el usuario correctamente!", Response::HTTP_CREATED);
+            if (!$id) {
+                throw new Exception("No se proporcionó el ID del usuario.");
             }
 
-            throw new Exception("Los datos introducidos no coinciden con ningun usuario existente.");
-        } catch (Exception $e) {
+            $userFound = $entityManager->getRepository(Usuarios::class)->find($id);
 
-            return new JsonResponse("KO" . $e->getMessage(), Response::HTTP_BAD_REQUEST);
+            if (!$userFound) {
+                throw new Exception("El usuario con ID {$id} no existe.");
+            }
+
+            $entityManager->remove($userFound);
+            $entityManager->flush();
+
+            return new JsonResponse("Se ha borrado el usuario correctamente!", Response::HTTP_OK);
+        } catch (Exception $e) {
+            return new JsonResponse("KO: " . $e->getMessage(), Response::HTTP_BAD_REQUEST);
         }
     }
+
 
     #[Route('/movieSearchTitle', name: 'app_movie_search_title', methods: ['GET'])]
     public function findByTitle(Request $request, EntityManagerInterface $entityManager): JsonResponse
@@ -376,6 +381,7 @@ final class UserController extends AbstractController
 
         return $this->json(['message' => 'Película eliminada']);
     }
+
     #[Route('/uploadImage', name: 'upload_image', methods: ['POST'])]
     public function uploadImage(Request $request, EntityManagerInterface $entityManager): JsonResponse
     {
