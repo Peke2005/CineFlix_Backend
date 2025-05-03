@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Entity\Categorias;
 use App\Entity\Peliculas;
+use App\Entity\Actores;
 use App\Entity\Usuarios;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
@@ -13,6 +14,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Exception;
+use Symfony\Component\HttpFoundation\File\Exception\FileException;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 
@@ -255,27 +257,50 @@ final class UserController extends AbstractController
         return new JsonResponse(['message' => 'Usuario encontrado', 'data' => $userData], 200);
     }
 
-    #[Route('/updateUser', name: 'app_user_update', methods: ['POST'])]
-    public function updateUser(Request $request, EntityManagerInterface $entityManager): JsonResponse
-    {
-        $data = json_decode($request->getContent(), true);
-
-        $id = $data['id'] ?? null;
-        $email = $data['email'] ?? null;
-        $contraseña = $data['contraseña'] ?? null;
+    #[Route('/updateUser', name: 'app_user_update', methods: ['PUT'])]
+    public function updateUser(
+        Request $request,
+        EntityManagerInterface $entityManager,
+        UserPasswordHasherInterface $passwordHasher
+    ): JsonResponse {
+        $id = $request->request->get('id');
+        $email = $request->request->get('email');
+        $contraseña = $request->request->get('contraseña');
+        $file = $request->files->get('imagen'); 
 
         if (!$id || !$email || !$contraseña) {
             return new JsonResponse(['message' => 'Faltan datos requeridos.'], 400);
         }
 
         $usuario = $entityManager->getRepository(Usuarios::class)->find($id);
-
         if (!$usuario) {
             return new JsonResponse(['message' => 'Usuario no encontrado.'], 404);
         }
 
         $usuario->setEmail($email);
-        $usuario->setContraseña($contraseña); // Asegúrate de encriptarla si manejas seguridad real
+
+        $hashedPassword = $passwordHasher->hashPassword($usuario, $contraseña);
+        $usuario->setContraseña($hashedPassword);
+
+        if ($file) {
+            $allowedMimeTypes = ['image/jpeg', 'image/png', 'image/gif'];
+            if (!in_array($file->getMimeType(), $allowedMimeTypes)) {
+                return new JsonResponse(['message' => 'Formato de imagen no válido.'], 400);
+            }
+
+            $newFilename = uniqid() . '.' . $file->guessExtension();
+
+            try {
+                $file->move(
+                    $this->getParameter('kernel.project_dir') . '/public/uploads',
+                    $newFilename
+                );
+            } catch (FileException $e) {
+                return new JsonResponse(['message' => 'Error al subir la imagen.'], 500);
+            }
+
+            $usuario->setFotoPerfil('/uploads/' . $newFilename);
+        }
 
         $entityManager->persist($usuario);
         $entityManager->flush();
@@ -296,6 +321,7 @@ final class UserController extends AbstractController
             }
             foreach ($film->getActores() as $actor) {
                 $actors[] = [
+                    'id_actor' => $actor->getIdActor(),
                     'name' => $actor->getNombre(),
                     'birthdate' => $actor->getFechaNacimiento(),
                     'nationality' => $actor->getNacionalidad(),
@@ -304,6 +330,7 @@ final class UserController extends AbstractController
             }
 
             $result[] = [
+                'id_pelicula' => $film->getIdPelicula(),
                 'title' => $film->getTitulo(),
                 'duration' => $film->getDuracion(),
                 'year' => $film->getAño(),
@@ -317,6 +344,24 @@ final class UserController extends AbstractController
         return new JsonResponse(['message' => 'Todas las películas', 'data' => $result]);
     }
 
+    #[Route('/actores', name: 'get_actores', methods: ['GET'])]
+    public function getActores(EntityManagerInterface $em): JsonResponse
+    {
+        $actores = $em->getRepository(Actores::class)->findAll();
+        $result = [];
+
+        foreach ($actores as $actor) {
+            $result[] = [
+                'id_actor' => $actor->getIdActor(),
+                'name' => $actor->getNombre(), 
+                'birthdate' => $actor->getFechaNacimiento() ? $actor->getFechaNacimiento()->format('Y-m-d') : null,
+                'nationality' => $actor->getNacionalidad(),
+                'photo' => $actor->getFoto()
+            ];
+        }
+
+        return $this->json(['message' => 'Lista de actores', 'data' => $result]);
+    }
 
 
     #[Route('/createFilm', name: 'create_pelicula', methods: ['POST'])]
@@ -325,12 +370,22 @@ final class UserController extends AbstractController
         $data = json_decode($request->getContent(), true);
 
         $pelicula = new Peliculas();
-        $pelicula->setTitulo($data['titulo']);
-        $pelicula->setDescripcion($data['descripcion']);
-        $pelicula->setAño($data['año']);
-        $pelicula->setDuracion((int)$data['duracion']);
-        $pelicula->setPortada($data['portada']);
+        $pelicula->setTitulo($data['title']);
+        $pelicula->setDescripcion($data['description']);
+        $pelicula->setAño($data['year']);
+        $pelicula->setDuracion((int) $data['duration']);
+        $pelicula->setPortada($data['imageUrl']);
         $pelicula->setTrailer($data['trailer']);
+
+        if (!empty($data['actors'])) {
+            foreach ($data['actors'] as $actorId) {
+                $actor = $em->getRepository(Actores::class)->find($actorId);
+                if ($actor) {
+                    $pelicula->addActor($actor); 
+                }
+            }
+        }
+
         $em->persist($pelicula);
         $em->flush();
 
@@ -348,12 +403,22 @@ final class UserController extends AbstractController
 
         $data = json_decode($request->getContent(), true);
 
-        $pelicula->setTitulo($data['titulo']);
-        $pelicula->setDescripcion($data['descripcion']);
-        $pelicula->setAño($data['año']);
-        $pelicula->setDuracion((int)$data['duracion']);
-        $pelicula->setPortada($data['portada']);
+        $pelicula->setTitulo($data['title']);
+        $pelicula->setDescripcion($data['description']);
+        $pelicula->setAño($data['year']);
+        $pelicula->setDuracion((int) $data['duration']);
+        $pelicula->setPortada($data['imageUrl']);
         $pelicula->setTrailer($data['trailer']);
+
+        $pelicula->getActores()->clear(); 
+        if (!empty($data['actors'])) {
+            foreach ($data['actors'] as $actorId) {
+                $actor = $em->getRepository(Actores::class)->find($actorId);
+                if ($actor) {
+                    $pelicula->addActor($actor);
+                }
+            }
+        }
 
         $em->flush();
 
@@ -398,7 +463,7 @@ final class UserController extends AbstractController
         $contenido = stream_get_contents($stream);
         fclose($stream);
 
-        $usuario->setFotoPerfil($contenido); // ❗ SIN base64_encode()
+        $usuario->setFotoPerfil($contenido); 
 
         $entityManager->persist($usuario);
         $entityManager->flush();
