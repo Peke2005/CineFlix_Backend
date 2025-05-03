@@ -257,61 +257,28 @@ final class UserController extends AbstractController
     }
 
     #[Route('/updateUser', name: 'app_user_update', methods: ['PUT'])]
-    public function updateUser(
-        Request $request,
-        EntityManagerInterface $entityManager,
-        UserPasswordHasherInterface $passwordHasher
-    ): JsonResponse {
-        // Obtener los datos del FormData
-        $id = $request->request->get('id');
-        $email = $request->request->get('email');
-        $contraseña = $request->request->get('contraseña');
-        $file = $request->files->get('imagen'); // La imagen enviada desde Angular
+    public function updateUser(Request $request, EntityManagerInterface $entityManager, UserPasswordHasherInterface $passwordHasher): JsonResponse
+    {
+        $data = json_decode($request->getContent(), true);
 
-        // Validar datos requeridos
+        $id = $data['id'] ?? null;
+        $email = $data['email'] ?? null;
+        $contraseña = $data['contraseña'] ?? null;
+
         if (!$id || !$email || !$contraseña) {
             return new JsonResponse(['message' => 'Faltan datos requeridos.'], 400);
         }
 
-        // Buscar el usuario
         $usuario = $entityManager->getRepository(Usuarios::class)->find($id);
+
         if (!$usuario) {
             return new JsonResponse(['message' => 'Usuario no encontrado.'], 404);
         }
 
-        // Actualizar email
         $usuario->setEmail($email);
-
-        // Encriptar la contraseña
         $hashedPassword = $passwordHasher->hashPassword($usuario, $contraseña);
         $usuario->setContraseña($hashedPassword);
 
-        // Procesar la imagen si se envió
-        if ($file) {
-            // Validar que sea una imagen
-            $allowedMimeTypes = ['image/jpeg', 'image/png', 'image/gif'];
-            if (!in_array($file->getMimeType(), $allowedMimeTypes)) {
-                return new JsonResponse(['message' => 'Formato de imagen no válido.'], 400);
-            }
-
-            // Generar un nombre único para la imagen
-            $newFilename = uniqid() . '.' . $file->guessExtension();
-
-            // Mover la imagen a la carpeta public/uploads/
-            try {
-                $file->move(
-                    $this->getParameter('kernel.project_dir') . '/public/uploads',
-                    $newFilename
-                );
-            } catch (FileException $e) {
-                return new JsonResponse(['message' => 'Error al subir la imagen.'], 500);
-            }
-
-            // Guardar la ruta de la imagen en la entidad
-            $usuario->setFotoPerfil('/uploads/' . $newFilename);
-        }
-
-        // Persistir los cambios
         $entityManager->persist($usuario);
         $entityManager->flush();
 
