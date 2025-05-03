@@ -258,15 +258,14 @@ final class UserController extends AbstractController
     }
 
     #[Route('/updateUser', name: 'app_user_update', methods: ['PUT'])]
-    public function updateUser(
-        Request $request,
-        EntityManagerInterface $entityManager,
-        UserPasswordHasherInterface $passwordHasher
-    ): JsonResponse {
-        $id = $request->request->get('id');
-        $email = $request->request->get('email');
-        $contraseña = $request->request->get('contraseña');
-        $file = $request->files->get('imagen'); 
+
+    public function updateUser(Request $request, EntityManagerInterface $entityManager, UserPasswordHasherInterface $passwordHasher): JsonResponse
+    {
+        $data = json_decode($request->getContent(), true);
+
+        $id = $data['id'] ?? null;
+        $email = $data['email'] ?? null;
+        $contraseña = $data['contraseña'] ?? null;
 
         if (!$id || !$email || !$contraseña) {
             return new JsonResponse(['message' => 'Faltan datos requeridos.'], 400);
@@ -281,26 +280,6 @@ final class UserController extends AbstractController
 
         $hashedPassword = $passwordHasher->hashPassword($usuario, $contraseña);
         $usuario->setContraseña($hashedPassword);
-
-        if ($file) {
-            $allowedMimeTypes = ['image/jpeg', 'image/png', 'image/gif'];
-            if (!in_array($file->getMimeType(), $allowedMimeTypes)) {
-                return new JsonResponse(['message' => 'Formato de imagen no válido.'], 400);
-            }
-
-            $newFilename = uniqid() . '.' . $file->guessExtension();
-
-            try {
-                $file->move(
-                    $this->getParameter('kernel.project_dir') . '/public/uploads',
-                    $newFilename
-                );
-            } catch (FileException $e) {
-                return new JsonResponse(['message' => 'Error al subir la imagen.'], 500);
-            }
-
-            $usuario->setFotoPerfil('/uploads/' . $newFilename);
-        }
 
         $entityManager->persist($usuario);
         $entityManager->flush();
