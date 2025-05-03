@@ -48,7 +48,7 @@ final class UserController extends AbstractController
             $usuario = $request->toArray();
             $userRepository = $entityManager->getRepository(Usuarios::class);
 
-            $rutaImagen = '/img/usuario.png';
+            $rutaImagen = 'assets/img/usuario.png';
 
             $imagenContent = file_get_contents($rutaImagen);
 
