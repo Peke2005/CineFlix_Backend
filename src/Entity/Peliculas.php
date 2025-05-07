@@ -7,6 +7,7 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use App\Entity\Comentarios;
 
 #[ORM\Entity(repositoryClass: PeliculasRepository::class)]
 class Peliculas
@@ -52,11 +53,23 @@ class Peliculas
     #[ORM\ManyToOne(targetEntity: Paises::class, inversedBy: 'relacionPeliculas')]
     #[ORM\JoinColumn(name: 'id_pais', referencedColumnName: 'id_pais')]
     private ?Paises $paises = null;
+    #[ORM\OneToMany(mappedBy: 'pelicula', targetEntity: Comentarios::class, cascade: ['persist', 'remove'])]
+    private Collection $comentarios;
+
 
     public function __construct()
     {
         $this->relationCategorias = new ArrayCollection();
         $this->actores = new ArrayCollection();
+        $this->comentarios = new ArrayCollection();
+    }
+
+    /**
+     * @return Collection|Comentarios[]
+     */
+    public function getComentarios(): Collection
+    {
+        return $this->comentarios;
     }
 
     // ... (getters y setters como en tu código original)

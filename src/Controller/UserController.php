@@ -140,11 +140,14 @@ final class UserController extends AbstractController
         }
 
         $qb = $entityManager->createQueryBuilder();
-        $qb->select('p')
+        $qb->select('p, c, r, cat, a')
             ->from(Peliculas::class, 'p')
+            ->leftJoin('p.comentarios', 'c')
+            ->leftJoin('c.relacionRespuestas', 'r')
+            ->leftJoin('p.relationCategorias', 'cat') // Carga categorías
+            ->leftJoin('p.actores', 'a') // Carga actores
             ->where('p.titulo LIKE :title')
             ->setParameter('title', '%' . $title . '%');
-
         $query = $qb->getQuery();
         $movies = $query->getResult();
 
@@ -153,9 +156,27 @@ final class UserController extends AbstractController
             foreach ($movies as $movie) {
                 $categories = [];
                 $actors = [];
+                $comentarios = [];
+                $respuestas = [];
+
 
                 foreach ($movie->getRelationCategorias() as $category) {
                     $categories[] = $category->getNombreCategoria();
+                }
+
+                foreach ($movie->getComentarios() as $comentario) {
+                    foreach ($comentario->getRelacionRespuestas() as $respuesta) {
+                        $respuestas[] = $respuesta->getComentario();
+                    }
+
+
+
+                    $comentarios[] = [
+                        'id' => $comentario->getId(),
+                        'mensaje' => $comentario->getMensaje(),
+                        'fechaCreacion' => $comentario->getFechaCreacion()->format('Y-m-d H:i:s'),
+                        'respuestas' => $respuestas
+                    ];
                 }
 
                 foreach ($movie->getActores() as $actor) {
@@ -175,7 +196,9 @@ final class UserController extends AbstractController
                     'categories' => $categories,
                     'trailer' => $movie->getTrailer(),
                     'imageUrl' => $movie->getPortada(),
-                    'actors' => $actors
+                    'actors' => $actors,
+                    'comentarios' => $comentarios,
+
                 ];
             }
             return new JsonResponse(['message' => 'Peliculas encontradas', 'data' => $result]);
@@ -337,7 +360,7 @@ final class UserController extends AbstractController
         foreach ($actores as $actor) {
             $result[] = [
                 'id_actor' => $actor->getIdActor(),
-                'name' => $actor->getNombre(), 
+                'name' => $actor->getNombre(),
                 'birthdate' => $actor->getFechaNacimiento() ? $actor->getFechaNacimiento()->format('Y-m-d') : null,
                 'nationality' => $actor->getNacionalidad(),
                 'photo' => $actor->getFoto()
@@ -365,7 +388,7 @@ final class UserController extends AbstractController
             foreach ($data['actors'] as $actorId) {
                 $actor = $em->getRepository(Actores::class)->find($actorId);
                 if ($actor) {
-                    $pelicula->addActor($actor); 
+                    $pelicula->addActor($actor);
                 }
             }
         }
@@ -394,7 +417,7 @@ final class UserController extends AbstractController
         $pelicula->setPortada($data['imageUrl']);
         $pelicula->setTrailer($data['trailer']);
 
-        $pelicula->getActores()->clear(); 
+        $pelicula->getActores()->clear();
         if (!empty($data['actors'])) {
             foreach ($data['actors'] as $actorId) {
                 $actor = $em->getRepository(Actores::class)->find($actorId);
@@ -448,7 +471,7 @@ final class UserController extends AbstractController
         $contenido = stream_get_contents($stream);
         fclose($stream);
 
-        $usuario->setFotoPerfil($contenido); 
+        $usuario->setFotoPerfil($contenido);
 
         $entityManager->persist($usuario);
         $entityManager->flush();
