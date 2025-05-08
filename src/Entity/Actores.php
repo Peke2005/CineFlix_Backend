@@ -111,4 +111,14 @@ class Actores
         $this->relationPeliculas->removeElement($relationPelicula);
         return $this;
     }
+
+    public function toArray(): array
+    {
+        return [
+            'name' => $this->nombre,
+            'birthdate' => $this->fecha_nacimiento ? $this->fecha_nacimiento->format('Y-m-d') : null,
+            'nationality' => $this->nacionalidad,
+            'foto' => $this->foto,
+        ];
+    }
 }

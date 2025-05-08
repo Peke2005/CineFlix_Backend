@@ -8,6 +8,7 @@ use App\Entity\Peliculas;
 use App\Repository\ComentariosRepository;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\Common\Collections\ArrayCollection;
+use App\Entity\Respuestas;
 
 
 #[ORM\Entity(repositoryClass: ComentariosRepository::class)]
@@ -94,5 +95,24 @@ class Comentarios
     {
         $this->fechaCreacion = $fechaCreacion;
         return $this;
+    }
+
+    public function toArray(bool $includeRespuestas = true): array
+    {
+        $respuestas = [];
+
+        if ($includeRespuestas) {
+            foreach ($this->getRelacionRespuestas() as $respuesta) {
+                $respuestas[] = $respuesta->toArray();
+            }
+        }
+
+        return [
+            'id' => $this->getId(),
+            'usuario' => $this->getUsuario()?->toArray(),
+            'mensaje' => $this->getMensaje(),
+            'fecha_creacion' => $this->getFechaCreacion()?->format('Y-m-d H:i:s'),
+            'respuestas' => $respuestas,
+        ];
     }
 }
