@@ -3,20 +3,27 @@
 namespace App\Repository;
 
 use App\Entity\Comentarios;
+use App\Entity\Peliculas;
 use App\Entity\Usuarios;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\PasswordHasher\Hasher\PasswordHasherFactory;
 use Carbon\Carbon;
+use Doctrine\ORM\EntityManagerInterface;
 
 /**
  * @extends ServiceEntityRepository<Usuarios>
  */
 class ComentariosRepository extends ServiceEntityRepository
 {
-    public function __construct(ManagerRegistry $registry)
+
+    private $entityManager;
+
+    public function __construct(ManagerRegistry $registry, EntityManagerInterface $entityManager)
     {
         parent::__construct($registry, Comentarios::class);
+        $this->entityManager = $entityManager; // Aquí inyectamos el EntityManager
+
     }
 
     //    /**
@@ -44,48 +51,14 @@ class ComentariosRepository extends ServiceEntityRepository
     //        ;
     //    }
 
-    public function verifyPassword($plainPass, $hashedPass)
+    public function addComment(string $commentMessage, Peliculas $movie, Usuarios $user)
     {
-        $factory = new PasswordHasherFactory([
-            'common' => ['algorithm' => 'bcrypt'],
-        ]);
-        $hasher = $factory->getPasswordHasher('common');
-        return $hasher->verify($hashedPass, $plainPass);
-    }
-
-    public function hashPassword($Password)
-    {
-        $factory = new PasswordHasherFactory([
-            'common' => ['algorithm' => 'bcrypt'],
-        ]);
-        $hasher = $factory->getPasswordHasher('common');
-
-        return $hasher->hash($Password);
-    }
-    public function createUser($Name, $Email, $Password, $imagen)
-    {
-        $rol = "usuario";
-        $RegistrationDate = Carbon::now();
-        $qb = $this->getEntityManager()->getConnection()->createQueryBuilder();
-
-        $qb->insert('usuarios')
-            ->setValue("nombre", ":nombre")
-            ->setValue("email", ":email")
-            ->setValue("contraseña", ":pass")
-            ->setValue('rol', ':rol')
-            ->setValue("fecha_registro", ":fecha_registro")
-            ->setValue("foto_perfil", ":foto_perfil");
-
-        $query = $qb->getSQL();
-        $params = [
-            'nombre' => $Name,
-            'email' => $Email,
-            'pass' => $this->hashPassword($Password),
-            'rol' => $rol,
-            'fecha_registro' => $RegistrationDate,
-            'foto_perfil' => $imagen
-        ];
-
-        return $this->getEntityManager()->getConnection()->executeQuery($query, $params);
+        $comment = new Comentarios();
+        $comment->setMensaje($commentMessage);
+        $comment->setFechaCreacion(new \DateTime());
+        $comment->setPelicula($movie);
+        $comment->setUsuario($user);
+        $this->entityManager->persist($comment);
+        $this->entityManager->flush();
     }
 }
