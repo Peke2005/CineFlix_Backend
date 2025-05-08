@@ -14,6 +14,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Exception;
+use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\File\Exception\FileException;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
@@ -103,27 +104,31 @@ final class UserController extends AbstractController
         }
     }
 
-    #[Route('/deleteUser', name: 'delete_user', methods: ['DELETE'])]
-
-    public function deleteUser(EntityManagerInterface $entityManager, Request $request)
+    #[Route('/deleteUser', name: 'deleteUser', methods: ['DELETE'])]
+    public function deleteUser(EntityManagerInterface $entityManager, Request $request): JsonResponse
     {
-
         try {
-            $userData = $request->toArray();
-            $userFound = $entityManager->getRepository(Usuarios::class)->findOneBy(["id_usuario" => $userData["id"]]);
-            if ($userFound) {
-                $entityManager->remove($userFound);
+            $id = $request->query->get('id');
 
-                $entityManager->flush();
-                return new JsonResponse("Se ha borrado el usuario correctamente!", Response::HTTP_CREATED);
+            if (!$id) {
+                throw new Exception("No se proporcionó el ID del usuario.");
             }
 
-            throw new Exception("Los datos introducidos no coinciden con ningun usuario existente.");
-        } catch (Exception $e) {
+            $userFound = $entityManager->getRepository(Usuarios::class)->find($id);
 
-            return new JsonResponse("KO" . $e->getMessage(), Response::HTTP_BAD_REQUEST);
+            if (!$userFound) {
+                throw new Exception("El usuario con ID {$id} no existe.");
+            }
+
+            $entityManager->remove($userFound);
+            $entityManager->flush();
+
+            return new JsonResponse("Se ha borrado el usuario correctamente!", Response::HTTP_OK);
+        } catch (Exception $e) {
+            return new JsonResponse("KO: " . $e->getMessage(), Response::HTTP_BAD_REQUEST);
         }
     }
+
 
     #[Route('/movieSearchTitle', name: 'app_movie_search_title', methods: ['GET'])]
     public function findByTitle(Request $request, EntityManagerInterface $entityManager): JsonResponse
@@ -135,11 +140,14 @@ final class UserController extends AbstractController
         }
 
         $qb = $entityManager->createQueryBuilder();
-        $qb->select('p')
+        $qb->select('p, c, r, cat, a')
             ->from(Peliculas::class, 'p')
+            ->leftJoin('p.comentarios', 'c')
+            ->leftJoin('c.relacionRespuestas', 'r')
+            ->leftJoin('p.relationCategorias', 'cat') // Carga categorías
+            ->leftJoin('p.actores', 'a') // Carga actores
             ->where('p.titulo LIKE :title')
             ->setParameter('title', '%' . $title . '%');
-
         $query = $qb->getQuery();
         $movies = $query->getResult();
 
@@ -148,9 +156,27 @@ final class UserController extends AbstractController
             foreach ($movies as $movie) {
                 $categories = [];
                 $actors = [];
+                $comentarios = [];
+                $respuestas = [];
+
 
                 foreach ($movie->getRelationCategorias() as $category) {
                     $categories[] = $category->getNombreCategoria();
+                }
+
+                foreach ($movie->getComentarios() as $comentario) {
+                    foreach ($comentario->getRelacionRespuestas() as $respuesta) {
+                        $respuestas[] = $respuesta->getComentario();
+                    }
+
+
+
+                    $comentarios[] = [
+                        'id' => $comentario->getId(),
+                        'mensaje' => $comentario->getMensaje(),
+                        'fechaCreacion' => $comentario->getFechaCreacion()->format('Y-m-d H:i:s'),
+                        'respuestas' => $respuestas
+                    ];
                 }
 
                 foreach ($movie->getActores() as $actor) {
@@ -170,7 +196,9 @@ final class UserController extends AbstractController
                     'categories' => $categories,
                     'trailer' => $movie->getTrailer(),
                     'imageUrl' => $movie->getPortada(),
-                    'actors' => $actors
+                    'actors' => $actors,
+                    'comentarios' => $comentarios,
+
                 ];
             }
             return new JsonResponse(['message' => 'Peliculas encontradas', 'data' => $result]);
@@ -332,7 +360,7 @@ final class UserController extends AbstractController
         foreach ($actores as $actor) {
             $result[] = [
                 'id_actor' => $actor->getIdActor(),
-                'name' => $actor->getNombre(), 
+                'name' => $actor->getNombre(),
                 'birthdate' => $actor->getFechaNacimiento() ? $actor->getFechaNacimiento()->format('Y-m-d') : null,
                 'nationality' => $actor->getNacionalidad(),
                 'photo' => $actor->getFoto()
@@ -360,7 +388,7 @@ final class UserController extends AbstractController
             foreach ($data['actors'] as $actorId) {
                 $actor = $em->getRepository(Actores::class)->find($actorId);
                 if ($actor) {
-                    $pelicula->addActor($actor); 
+                    $pelicula->addActor($actor);
                 }
             }
         }
@@ -389,7 +417,7 @@ final class UserController extends AbstractController
         $pelicula->setPortada($data['imageUrl']);
         $pelicula->setTrailer($data['trailer']);
 
-        $pelicula->getActores()->clear(); 
+        $pelicula->getActores()->clear();
         if (!empty($data['actors'])) {
             foreach ($data['actors'] as $actorId) {
                 $actor = $em->getRepository(Actores::class)->find($actorId);
@@ -418,6 +446,7 @@ final class UserController extends AbstractController
 
         return $this->json(['message' => 'Película eliminada']);
     }
+
     #[Route('/uploadImage', name: 'upload_image', methods: ['POST'])]
     public function uploadImage(Request $request, EntityManagerInterface $entityManager): JsonResponse
     {
@@ -442,7 +471,7 @@ final class UserController extends AbstractController
         $contenido = stream_get_contents($stream);
         fclose($stream);
 
-        $usuario->setFotoPerfil($contenido); 
+        $usuario->setFotoPerfil($contenido);
 
         $entityManager->persist($usuario);
         $entityManager->flush();

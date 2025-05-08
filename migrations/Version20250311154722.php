@@ -33,6 +33,12 @@ final class Version20250311154722 extends AbstractMigration
         $this->addSql('ALTER TABLE peliculas ADD CONSTRAINT FK_9B1814B0282BEA6A FOREIGN KEY (paises_id) REFERENCES paises (id_pais)');
         $this->addSql('ALTER TABLE peliculas_categorias ADD CONSTRAINT FK_29E864CB9EDD74B8 FOREIGN KEY (peliculas_id) REFERENCES peliculas (id_pelicula) ON DELETE CASCADE');
         $this->addSql('ALTER TABLE peliculas_categorias ADD CONSTRAINT FK_29E864CB5792B277 FOREIGN KEY (categorias_id) REFERENCES categorias (id_categoria) ON DELETE CASCADE');
+        $this->addSql('CREATE TABLE comentarios (id INT AUTO_INCREMENT NOT NULL, usuario_id INT NOT NULL, pelicula_id INT NOT NULL, mensaje LONGTEXT NOT NULL, fecha_creacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, INDEX fkUsuario_idx (usuario_id), INDEX fkPelicula_idx (pelicula_id), PRIMARY KEY(id)) DEFAULT CHARACTER SET utf8mb4 COLLATE `utf8mb4_unicode_ci` ENGINE = InnoDB');
+        $this->addSql('CREATE TABLE respuestas (id INT AUTO_INCREMENT NOT NULL, usuario_id INT NOT NULL, comentario_id INT NOT NULL, mensaje LONGTEXT NOT NULL, fecha_creacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, INDEX fkUsuarioRespuesta_idx (usuario_id), INDEX fkComentario_idx (comentario_id), PRIMARY KEY(id)) DEFAULT CHARACTER SET utf8mb4 COLLATE `utf8mb4_unicode_ci` ENGINE = InnoDB');
+        $this->addSql('ALTER TABLE comentarios ADD CONSTRAINT fkUsuario FOREIGN KEY (usuario_id) REFERENCES usuarios (id_usuario) ON DELETE NO ACTION');
+        $this->addSql('ALTER TABLE comentarios ADD CONSTRAINT fkPelicula FOREIGN KEY (pelicula_id) REFERENCES peliculas (id_pelicula) ON DELETE NO ACTION');
+        $this->addSql('ALTER TABLE respuestas ADD CONSTRAINT fkUsuarioRespuesta FOREIGN KEY (usuario_id) REFERENCES usuarios (id_usuario) ON DELETE NO ACTION');
+        $this->addSql('ALTER TABLE respuestas ADD CONSTRAINT fkComentario FOREIGN KEY (comentario_id) REFERENCES comentarios (id) ON DELETE CASCADE');
     }
 
     public function down(Schema $schema): void
@@ -51,5 +57,7 @@ final class Version20250311154722 extends AbstractMigration
         $this->addSql('DROP TABLE peliculas_categorias');
         $this->addSql('DROP TABLE usuarios');
         $this->addSql('DROP TABLE messenger_messages');
+        $this->addSql('DROP TABLE respuestas');
+        $this->addSql('DROP TABLE comentarios');
     }
 }

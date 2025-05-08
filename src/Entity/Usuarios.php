@@ -33,6 +33,8 @@ class Usuarios implements PasswordAuthenticatedUserInterface
     #[ORM\Column(type: Types::BLOB, nullable: true)]
     private $foto_perfil = null;
 
+
+
     public function getIdUsuario(): ?int
     {
         return $this->id_usuario;
@@ -62,7 +64,7 @@ class Usuarios implements PasswordAuthenticatedUserInterface
         return $this;
     }
 
-    
+
     public function getContraseña(): ?string
     {
         return $this->contraseña;
@@ -113,5 +115,17 @@ class Usuarios implements PasswordAuthenticatedUserInterface
     public function getPassword(): ?string
     {
         return null;
+    }
+
+    public function toArray(): array
+    {
+        return [
+            'id' => $this->getIdUsuario(),
+            'nombre' => $this->getNombre(),
+            'email' => $this->getEmail(),
+            'rol' => $this->getRol(),
+            'fecha_registro' => $this->getFechaRegistro()?->format('Y-m-d H:i:s'),
+            'foto_perfil' => $this->getFotoPerfil() ? base64_encode(stream_get_contents($this->getFotoPerfil())) : null,
+        ];
     }
 }
