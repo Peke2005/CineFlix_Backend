@@ -5,6 +5,7 @@ namespace App\Controller;
 use App\Entity\Categorias;
 use App\Entity\Peliculas;
 use App\Entity\Actores;
+use App\Entity\Comentarios;
 use App\Entity\Usuarios;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
@@ -161,15 +162,13 @@ final class UserController extends AbstractController
 
 
                 foreach ($movie->getRelationCategorias() as $category) {
-                    $categories[] = $category->getNombreCategoria();
+                    $categories[] = $category->toArray();
                 }
 
                 foreach ($movie->getComentarios() as $comentario) {
                     foreach ($comentario->getRelacionRespuestas() as $respuesta) {
-                        $respuestas[] = $respuesta->getComentario();
+                        $respuestas[] = $respuesta->toArray();
                     }
-
-
 
                     $comentarios[] = [
                         'id' => $comentario->getId(),
@@ -189,6 +188,7 @@ final class UserController extends AbstractController
                 }
 
                 $result[] = [
+                    'id' => $movie->getIdPelicula(),
                     'title' => $movie->getTitulo(),
                     'duration' => $movie->getDuracion(),
                     'year' => $movie->getAño(),
@@ -244,6 +244,7 @@ final class UserController extends AbstractController
                 }
 
                 $result[] = [
+                    'id' => $movie->getIdPelicula(),
                     'title' => $movie->getTitulo(),
                     'duration' => $movie->getDuracion(),
                     'year' => $movie->getAño(),
@@ -477,5 +478,46 @@ final class UserController extends AbstractController
         $entityManager->flush();
 
         return new JsonResponse(['message' => 'Imagen actualizada correctamente.'], 200);
+    }
+    
+    #[Route('/uploadComentario', name: 'upload_comentario', methods: ['POST'])]
+    public function uploadComentario(Request $request, EntityManagerInterface $entityManager): JsonResponse
+    {
+        try {
+            $data = json_decode($request->getContent(), true);
+    
+            // Validamos los datos necesarios
+            $userId = $data['userId'] ?? null;
+            $movieId = $data['movieId'] ?? null;
+            $commentMessage = $data['commentMessage'] ?? null;
+            
+            if (!$userId || !$movieId || !$commentMessage) {
+                return new JsonResponse(['message' => 'Faltan datos requeridos.'], Response::HTTP_BAD_REQUEST);
+            }
+    
+            // Buscar el usuario por su ID
+            $user = $entityManager->getRepository(Usuarios::class)->find($userId);
+            if (!$user) {
+                return new JsonResponse(['message' => 'Usuario no encontrado.'], Response::HTTP_NOT_FOUND);
+            }
+    
+            // Buscar la película por su ID
+            $movie = $entityManager->getRepository(Peliculas::class)->find($movieId);
+            if (!$movie) {
+                return new JsonResponse(['message' => 'Película no encontrada.'], Response::HTTP_NOT_FOUND);
+            }
+    
+            // Obtener el repositorio de comentarios
+            $commentRepository = $entityManager->getRepository(Comentarios::class);
+    
+            // Aquí estamos creando el comentario directamente sin instanciar la clase manualmente
+            // Se supone que ya está mapeado en la entidad, por lo que podemos realizar el insert de manera directa
+            $commentRepository->addComment($commentMessage, $movie, $user);
+    
+            return new JsonResponse(['message' => 'Comentario añadido con éxito'], Response::HTTP_CREATED);
+    
+        } catch (Exception $e) {
+            return new JsonResponse(['message' => 'Error al agregar el comentario: ' . $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
     }
 }
