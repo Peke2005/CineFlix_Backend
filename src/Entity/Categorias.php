@@ -66,12 +66,4 @@ class Categorias
         $this->peliculas->removeElement($pelicula);
         return $this;
     }
-
-    public function toArray(): array
-    {
-        return [
-            'id_categoria' => $this->id_categoria,
-            'name' => $this->nombre_categoria,
-        ];
-    }
 }

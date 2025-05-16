@@ -33,8 +33,6 @@ class Usuarios implements PasswordAuthenticatedUserInterface
     #[ORM\Column(type: Types::BLOB, nullable: true)]
     private $foto_perfil = null;
 
-
-
     public function getIdUsuario(): ?int
     {
         return $this->id_usuario;

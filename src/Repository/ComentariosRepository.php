@@ -22,7 +22,7 @@ class ComentariosRepository extends ServiceEntityRepository
     public function __construct(ManagerRegistry $registry, EntityManagerInterface $entityManager)
     {
         parent::__construct($registry, Comentarios::class);
-        $this->entityManager = $entityManager; // Aquí inyectamos el EntityManager
+        $this->entityManager = $entityManager;
 
     }
 

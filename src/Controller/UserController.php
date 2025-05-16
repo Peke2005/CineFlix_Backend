@@ -6,6 +6,7 @@ use App\Entity\Categorias;
 use App\Entity\Peliculas;
 use App\Entity\Actores;
 use App\Entity\Comentarios;
+use App\Entity\Respuestas;
 use App\Entity\Usuarios;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
@@ -93,7 +94,10 @@ final class UserController extends AbstractController
                 if ($userRepository->verifyPassword($userData['pass'], $userFound->getContraseña())) {
                     $id = $userFound->getIdUsuario();
                     $rol = $userFound->getRol();
-                    return new JsonResponse(["status" => true, "rol" => $rol, "id" => $id, "logError" => "Has iniciado sesion correctamente!"], Response::HTTP_OK);
+                    $name = $userFound->getNombre();
+                    $foto = $userFound->getFotoPerfil();
+                    $image_perfil = base64_encode(stream_get_contents($foto));
+                    return new JsonResponse(["status" => true, "rol" => $rol, "id" => $id,'name' => $name, 'foto_perfil' =>  $image_perfil, "logError" => "Has iniciado sesion correctamente!"], Response::HTTP_OK);
                 } else {
                     throw new Exception(message: "Los datos introducidos no coinciden con ningun usuario existente.");
                 }
@@ -137,7 +141,7 @@ final class UserController extends AbstractController
         $title = $request->query->get('title');
 
         if (empty($title)) {
-            return new JsonResponse(['message' => 'Por favor, proporciona un título para la busqueda.'], 400);
+            return new JsonResponse(['message' => 'Por favor, proporciona un título para la búsqueda.'], 400);
         }
 
         $qb = $entityManager->createQueryBuilder();
@@ -145,10 +149,12 @@ final class UserController extends AbstractController
             ->from(Peliculas::class, 'p')
             ->leftJoin('p.comentarios', 'c')
             ->leftJoin('c.relacionRespuestas', 'r')
-            ->leftJoin('p.relationCategorias', 'cat') // Carga categorías
-            ->leftJoin('p.actores', 'a') // Carga actores
+            ->leftJoin('p.relationCategorias', 'cat')
+            ->leftJoin('p.actores', 'a')
             ->where('p.titulo LIKE :title')
-            ->setParameter('title', '%' . $title . '%');
+            ->setParameter('title', '%' . $title . '%')
+            ->orderBy('c.fechaCreacion', 'DESC');
+
         $query = $qb->getQuery();
         $movies = $query->getResult();
 
@@ -160,22 +166,15 @@ final class UserController extends AbstractController
                 $comentarios = [];
                 $respuestas = [];
 
-
                 foreach ($movie->getRelationCategorias() as $category) {
-                    $categories[] = $category->toArray();
+                    $categories[] = $category->getNombreCategoria();
                 }
-
                 foreach ($movie->getComentarios() as $comentario) {
                     foreach ($comentario->getRelacionRespuestas() as $respuesta) {
                         $respuestas[] = $respuesta->toArray();
                     }
 
-                    $comentarios[] = [
-                        'id' => $comentario->getId(),
-                        'mensaje' => $comentario->getMensaje(),
-                        'fechaCreacion' => $comentario->getFechaCreacion()->format('Y-m-d H:i:s'),
-                        'respuestas' => $respuestas
-                    ];
+                    $comentarios[] = $comentario->toArray();
                 }
 
                 foreach ($movie->getActores() as $actor) {
@@ -198,67 +197,66 @@ final class UserController extends AbstractController
                     'imageUrl' => $movie->getPortada(),
                     'actors' => $actors,
                     'comentarios' => $comentarios,
-
                 ];
             }
-            return new JsonResponse(['message' => 'Peliculas encontradas', 'data' => $result]);
+
+            return new JsonResponse(['message' => 'Películas encontradas', 'data' => $result]);
         } else {
-            return new JsonResponse(['message' => 'No se encontro ninguna pelicula.']);
+            return new JsonResponse(['message' => 'No se encontró ninguna película.']);
         }
     }
+        #[Route('/movieSearchCategory', name: 'app_movie_search_category', methods: ['GET'])]
+        public function findByCategory(Request $request, EntityManagerInterface $entityManager): JsonResponse
+        {
+            $categoryName = $request->query->get('category');
 
-    #[Route('/movieSearchCategory', name: 'app_movie_search_category', methods: ['GET'])]
-    public function findByCategory(Request $request, EntityManagerInterface $entityManager): JsonResponse
-    {
-        $categoryName = $request->query->get('category');
+            if (empty($categoryName)) {
+                return new JsonResponse(['message' => 'Por favor, proporciona una categoría para la búsqueda.'], 400);
+            }
 
-        if (empty($categoryName)) {
-            return new JsonResponse(['message' => 'Por favor, proporciona una categoría para la búsqueda.'], 400);
-        }
+            $category = $entityManager->getRepository(Categorias::class)
+                ->findOneBy(['nombre_categoria' => $categoryName]);
 
-        $category = $entityManager->getRepository(Categorias::class)
-            ->findOneBy(['nombre_categoria' => $categoryName]);
+            if (!$category) {
+                return new JsonResponse(['message' => 'No se encontro la categoria especificada.'], 404);
+            }
 
-        if (!$category) {
-            return new JsonResponse(['message' => 'No se encontro la categoria especificada.'], 404);
-        }
+            $categoryId = $category->getIdCategoria();
 
-        $categoryId = $category->getIdCategoria();
+            $qb = $entityManager->createQueryBuilder();
+            $qb->select('p')
+                ->from(Peliculas::class, 'p')
+                ->join('p.relationCategorias', 'c')
+                ->where('c.id_categoria = :categoryId')
+                ->setParameter('categoryId', $categoryId);
 
-        $qb = $entityManager->createQueryBuilder();
-        $qb->select('p')
-            ->from(Peliculas::class, 'p')
-            ->join('p.relationCategorias', 'c')
-            ->where('c.id_categoria = :categoryId')
-            ->setParameter('categoryId', $categoryId);
+            $query = $qb->getQuery();
+            $movies = $query->getResult();
 
-        $query = $qb->getQuery();
-        $movies = $query->getResult();
+            if (!empty($movies)) {
+                $result = [];
+                foreach ($movies as $movie) {
+                    $categories = [];
+                    foreach ($movie->getRelationCategorias() as $category) {
+                        $categories[] = $category->getNombreCategoria();
+                    }
 
-        if (!empty($movies)) {
-            $result = [];
-            foreach ($movies as $movie) {
-                $categories = [];
-                foreach ($movie->getRelationCategorias() as $category) {
-                    $categories[] = $category->getNombreCategoria();
+                    $result[] = [
+                        'id' => $movie->getIdPelicula(),
+                        'title' => $movie->getTitulo(),
+                        'duration' => $movie->getDuracion(),
+                        'year' => $movie->getAño(),
+                        'description' => $movie->getDescripcion(),
+                        'categories' => $categories,
+                        'imageUrl' => $movie->getPortada(),
+                    ];
                 }
 
-                $result[] = [
-                    'id' => $movie->getIdPelicula(),
-                    'title' => $movie->getTitulo(),
-                    'duration' => $movie->getDuracion(),
-                    'year' => $movie->getAño(),
-                    'description' => $movie->getDescripcion(),
-                    'categories' => $categories,
-                    'imageUrl' => $movie->getPortada(),
-                ];
+                return new JsonResponse(['message' => 'Peliculas encontradas', 'data' => $result]);
+            } else {
+                return new JsonResponse(['message' => 'No se encontro ninguna pelicula en esa categoria.']);
             }
-
-            return new JsonResponse(['message' => 'Peliculas encontradas', 'data' => $result]);
-        } else {
-            return new JsonResponse(['message' => 'No se encontro ninguna pelicula en esa categoria.']);
         }
-    }
     #[Route('/userSearchById', name: 'app_user_search_by_id', methods: ['GET'])]
     public function findUserById(Request $request, EntityManagerInterface $entityManager): JsonResponse
     {
@@ -273,7 +271,6 @@ final class UserController extends AbstractController
         if (!$usuario) {
             return new JsonResponse(['message' => 'No se encontro el usuario especificado.'], 404);
         }
-
         $foto = $usuario->getFotoPerfil();
         $userData = [
             'id' => $usuario->getIdUsuario(),
@@ -485,8 +482,7 @@ final class UserController extends AbstractController
     {
         try {
             $data = json_decode($request->getContent(), true);
-    
-            // Validamos los datos necesarios
+
             $userId = $data['userId'] ?? null;
             $movieId = $data['movieId'] ?? null;
             $commentMessage = $data['commentMessage'] ?? null;
@@ -494,30 +490,60 @@ final class UserController extends AbstractController
             if (!$userId || !$movieId || !$commentMessage) {
                 return new JsonResponse(['message' => 'Faltan datos requeridos.'], Response::HTTP_BAD_REQUEST);
             }
-    
-            // Buscar el usuario por su ID
+
             $user = $entityManager->getRepository(Usuarios::class)->find($userId);
             if (!$user) {
                 return new JsonResponse(['message' => 'Usuario no encontrado.'], Response::HTTP_NOT_FOUND);
             }
-    
-            // Buscar la película por su ID
+
             $movie = $entityManager->getRepository(Peliculas::class)->find($movieId);
             if (!$movie) {
                 return new JsonResponse(['message' => 'Película no encontrada.'], Response::HTTP_NOT_FOUND);
             }
-    
-            // Obtener el repositorio de comentarios
+
             $commentRepository = $entityManager->getRepository(Comentarios::class);
     
-            // Aquí estamos creando el comentario directamente sin instanciar la clase manualmente
-            // Se supone que ya está mapeado en la entidad, por lo que podemos realizar el insert de manera directa
             $commentRepository->addComment($commentMessage, $movie, $user);
     
             return new JsonResponse(['message' => 'Comentario añadido con éxito'], Response::HTTP_CREATED);
     
         } catch (Exception $e) {
             return new JsonResponse(['message' => 'Error al agregar el comentario: ' . $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    #[Route('/uploadCommentResponse', name: 'upload_comment_response', methods: ['POST'])]
+    public function uploadCommentResponse(Request $request, EntityManagerInterface $entityManager): JsonResponse
+    {
+        try {
+            $data = json_decode($request->getContent(), true);
+        
+            $userId = $data['userId'] ?? null;
+            $commentId = $data['commentId'] ?? null;
+            $responseMessage = $data['responseMessage'] ?? null;
+        
+            if (!$userId || !$commentId || !$responseMessage) {
+                return new JsonResponse(['message' => 'Faltan datos requeridos.'], Response::HTTP_BAD_REQUEST);
+            }
+        
+            $user = $entityManager->getRepository(Usuarios::class)->find($userId);
+            if (!$user) {
+                return new JsonResponse(['message' => 'Usuario no encontrado.'], Response::HTTP_NOT_FOUND);
+            }
+        
+            $comment = $entityManager->getRepository(Comentarios::class)->find($commentId);
+            if (!$comment) {
+                return new JsonResponse(['message' => 'Comentario no encontrado.'], Response::HTTP_NOT_FOUND);
+            }
+        
+            $commentRepository = $entityManager->getRepository(Respuestas::class);
+        
+            $commentRepository->addResponse($responseMessage, $comment, $user);
+        
+            return new JsonResponse(['message' => 'Respuesta añadida con éxito'], Response::HTTP_CREATED);
+        
+        } catch (Exception $e) {
+            return new JsonResponse(['message' => 'Error al agregar la respuesta: ' . $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 }
