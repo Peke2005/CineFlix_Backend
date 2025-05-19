@@ -170,11 +170,11 @@ final class UserController extends AbstractController
                     $categories[] = $category->getNombreCategoria();
                 }
                 foreach ($movie->getComentarios() as $comentario) {
+                    $comentarios[] = $comentario->toArray();
                     foreach ($comentario->getRelacionRespuestas() as $respuesta) {
                         $respuestas[] = $respuesta->toArray();
                     }
 
-                    $comentarios[] = $comentario->toArray();
                 }
 
                 foreach ($movie->getActores() as $actor) {
@@ -530,6 +530,7 @@ final class UserController extends AbstractController
             if (!$user) {
                 return new JsonResponse(['message' => 'Usuario no encontrado.'], Response::HTTP_NOT_FOUND);
             }
+
         
             $comment = $entityManager->getRepository(Comentarios::class)->find($commentId);
             if (!$comment) {
