@@ -33,6 +33,9 @@ class Usuarios implements PasswordAuthenticatedUserInterface
     #[ORM\Column(type: Types::BLOB, nullable: true)]
     private $foto_perfil = null;
 
+    // Propiedad para almacenar el contenido del blob leído una vez
+    private ?string $fotoPerfilContenido = null;
+
     public function getIdUsuario(): ?int
     {
         return $this->id_usuario;
@@ -61,7 +64,6 @@ class Usuarios implements PasswordAuthenticatedUserInterface
 
         return $this;
     }
-
 
     public function getContraseña(): ?string
     {
@@ -107,12 +109,45 @@ class Usuarios implements PasswordAuthenticatedUserInterface
     public function setFotoPerfil($foto_perfil): static
     {
         $this->foto_perfil = $foto_perfil;
+        // Reiniciar el contenido cacheado al cambiar la foto
+        $this->fotoPerfilContenido = null;
         return $this;
     }
 
-    public function getPassword(): ?string
+    public function getFotoPerfilBase64(): ?string
     {
-        return null;
+        // Retorna el base64 si ya está almacenado en la propiedad
+        if ($this->fotoPerfilContenido !== null) {
+            return base64_encode($this->fotoPerfilContenido);
+        }
+
+        $foto = $this->getFotoPerfil();
+
+        if ($foto === null) {
+            error_log('foto_perfil es null');
+            return null;
+        }
+
+        if (is_resource($foto)) {
+            rewind($foto);
+            $contenido = stream_get_contents($foto);
+            fclose($foto);
+        } elseif (is_string($foto)) {
+            $contenido = $foto;
+        } else {
+            error_log('Tipo inesperado en foto_perfil: ' . gettype($foto));
+            return null;
+        }
+
+        if ($contenido === false) {
+            error_log('Error al leer contenido de foto_perfil');
+            return null;
+        }
+
+        // Guardamos el contenido para futuras llamadas
+        $this->fotoPerfilContenido = $contenido;
+
+        return base64_encode($contenido);
     }
 
     public function toArray(): array
@@ -123,7 +158,13 @@ class Usuarios implements PasswordAuthenticatedUserInterface
             'email' => $this->getEmail(),
             'rol' => $this->getRol(),
             'fecha_registro' => $this->getFechaRegistro()?->format('Y-m-d H:i:s'),
-            'foto_perfil' => $this->getFotoPerfil() ? base64_encode(stream_get_contents($this->getFotoPerfil())) : null,
+            'foto_perfil' => $this->getFotoPerfilBase64(),
         ];
+    }
+
+    public function getPassword(): ?string
+    {
+        // Implementa según tu necesidad de seguridad
+        return $this->contraseña;
     }
 }
