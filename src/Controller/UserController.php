@@ -6,8 +6,10 @@ use App\Entity\Categorias;
 use App\Entity\Peliculas;
 use App\Entity\Actores;
 use App\Entity\Comentarios;
+use App\Entity\Historiales;
 use App\Entity\Respuestas;
 use App\Entity\Usuarios;
+use App\Repository\HistorialesRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -347,6 +349,64 @@ final class UserController extends AbstractController
         return new JsonResponse(['message' => 'Todas las películas', 'data' => $result]);
     }
 
+    #[Route('/historial/{usuarioId}', name: 'api_historial_usuario', methods: ['GET'])]
+    public function getHistorialUsuario(
+        int $usuarioId,
+        Request $request,
+        EntityManagerInterface $em,
+        HistorialesRepository $historialesRepository
+    ): JsonResponse {
+        $usuario = $em->getRepository(Usuarios::class)->find($usuarioId);
+        if (!$usuario) {
+            return new JsonResponse(['error' => 'Usuario no encontrado'], 404);
+        }
+
+        $page = max(1, $request->query->getInt('page', 1));
+        $limit = 10;
+        $offset = ($page - 1) * $limit;
+
+        $historiales = $historialesRepository->findBy(
+            ['usuario' => $usuario],
+            ['fechaVista' => 'DESC'],
+            $limit,
+            $offset
+        );
+
+        $total = $historialesRepository->count(['usuario' => $usuario]);
+
+        $peliculas = [];
+        foreach ($historiales as $historial) {
+            $pelicula = $historial->getPelicula();
+            $categories = [];
+            foreach ($pelicula->getRelationCategorias() as $category) {
+                $categories[] = $category->getNombreCategoria();
+            }
+
+            $peliculas[] = [
+                'id_pelicula' => $pelicula->getIdPelicula(),
+                'titulo' => $pelicula->getTitulo(),
+                'descripcion' => $pelicula->getDescripcion(),
+                'categories' => $categories,
+                'año' => $pelicula->getAño(),
+                'duracion' => $pelicula->getDuracion(),
+                'portada' => $pelicula->getPortada(),
+                'fecha_vista' => $historial->getFechaVista()->format('Y-m-d H:i:s'),
+            ];
+        }
+
+        return new JsonResponse([
+            'peliculas' => $peliculas,
+            'meta' => [
+                'page' => $page,
+                'limit' => $limit,
+                'total' => $total,
+                'pages' => ceil($total / $limit)
+            ]
+        ], 200);
+    }
+
+
+
     #[Route('/actores', name: 'get_actores', methods: ['GET'])]
     public function getActores(EntityManagerInterface $em): JsonResponse
     {
@@ -472,7 +532,7 @@ final class UserController extends AbstractController
         $entityManager->persist($usuario);
         $entityManager->flush();
 
-        return new JsonResponse(['message' => 'Imagen actualizada correctamente.'], 200);
+        return new JsonResponse(['message' => 'Imagen actualizada correctamente.', 'foto_perfil' => base64_encode($contenido)], 200);
     }
 
     #[Route('/uploadComentario', name: 'upload_comentario', methods: ['POST'])]

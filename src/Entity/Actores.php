@@ -36,6 +36,7 @@ class Actores
     #[ORM\InverseJoinColumn(name: 'id_pelicula', referencedColumnName: 'id_pelicula')]
     private Collection $relationPeliculas;
 
+
     public function __construct()
     {
         $this->relationPeliculas = new ArrayCollection();
