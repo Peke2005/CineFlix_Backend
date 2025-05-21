@@ -18,8 +18,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Exception;
-use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpFoundation\File\Exception\FileException;
+use App\Entity\ComentarioReacciones;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 
@@ -141,6 +140,8 @@ final class UserController extends AbstractController
     public function findByTitle(Request $request, EntityManagerInterface $entityManager): JsonResponse
     {
         $title = $request->query->get('title');
+        $userId = $request->query->get('idUser');
+
 
         if (empty($title)) {
             return new JsonResponse(['message' => 'Por favor, proporciona un título para la búsqueda.'], 400);
@@ -165,7 +166,40 @@ final class UserController extends AbstractController
                 foreach ($movie->getRelationCategorias() as $category) {
                     $categories[] = $category->getNombreCategoria();
                 }
+                
+                foreach ($movie->getComentarios() as $comentario) {
+                    $entityManager->refresh($comentario->getUsuario());
 
+                    // Calcular likes/dislikes y reacción del usuario actual
+                    $likes = $entityManager->getRepository(ComentarioReacciones::class)->count([
+                        'comentario' => $comentario,
+                        'tipo' => 'like',
+                    ]);
+
+                    $dislikes = $entityManager->getRepository(ComentarioReacciones::class)->count([
+                        'comentario' => $comentario,
+                        'tipo' => 'dislike',
+                    ]);
+
+                    $userReaction = null;
+                    if ($userId) {
+                        $user = $entityManager->getRepository(Usuarios::class)->find($userId);
+                        $reaccion = $entityManager->getRepository(ComentarioReacciones::class)->findOneBy([
+                            'comentario' => $comentario,
+                            'usuario' => $user,
+                        ]);
+                        if ($reaccion) {
+                            $userReaction = $reaccion->getTipo();
+                        }
+                    }
+
+                    $comentarioData = $comentario->toArray();
+                    $comentarioData['likes'] = $likes;
+                    $comentarioData['dislikes'] = $dislikes;
+                    $comentarioData['userReaction'] = $userReaction;
+
+                    $comentarios[] = $comentarioData;
+                }
                 foreach ($movie->getActores() as $actor) {
                     $actors[] = [
                         'name' => $actor->getNombre(),
@@ -684,5 +718,56 @@ final class UserController extends AbstractController
         } catch (Exception $e) {
             return new JsonResponse(['message' => 'Error al agregar la respuesta: ' . $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
+    }
+
+    #[Route('/comentario/reaccion', name: 'comentario_reaccion', methods: ['POST'])]
+    public function reaccionComentario(Request $request, EntityManagerInterface $em): JsonResponse
+    {
+        $comentarioId = $request->request->get('comentario_id');
+        $usuarioId = $request->request->get('usuario_id');
+        $tipo = $request->request->get('tipo');
+
+        if (!$comentarioId || !$usuarioId || !$tipo) {
+            return new JsonResponse(['error' => 'Faltan parámetros'], 400);
+        }
+
+        if (!in_array($tipo, ['like', 'dislike'], true)) {
+            return new JsonResponse(['error' => 'Tipo inválido'], 400);
+        }
+
+        $comentario = $em->getRepository(Comentarios::class)->find($comentarioId);
+        $usuario = $em->getRepository(Usuarios::class)->find($usuarioId);
+
+        if (!$comentario || !$usuario) {
+            return new JsonResponse(['error' => 'Comentario o usuario no encontrado'], 404);
+        }
+
+        $repo = $em->getRepository(ComentarioReacciones::class);
+        $reaccion = $repo->findOneBy(['comentario' => $comentario, 'usuario' => $usuario]);
+
+        if ($reaccion) {
+            if ($reaccion->getTipo() === $tipo) {
+                $em->remove($reaccion);
+            } else {
+                $reaccion->setTipo($tipo);
+            }
+        } else {
+            $reaccion = new ComentarioReacciones();
+            $reaccion->setComentario($comentario);
+            $reaccion->setUsuario($usuario);
+            $reaccion->setTipo($tipo);
+            $em->persist($reaccion);
+        }
+
+        $em->flush();
+
+        $likes = $repo->count(['comentario' => $comentario, 'tipo' => 'like']);
+        $dislikes = $repo->count(['comentario' => $comentario, 'tipo' => 'dislike']);
+
+        return new JsonResponse([
+            'likes' => $likes,
+            'dislikes' => $dislikes,
+            'status' => 'updated'
+        ]);
     }
 }
