@@ -5,6 +5,8 @@ namespace App\Entity;
 use App\Repository\UsuariosRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 
 #[ORM\Entity(repositoryClass: UsuariosRepository::class)]
@@ -33,8 +35,31 @@ class Usuarios implements PasswordAuthenticatedUserInterface
     #[ORM\Column(type: Types::BLOB, nullable: true)]
     private $foto_perfil = null;
 
-    // Propiedad para almacenar el contenido del blob leído una vez
     private ?string $fotoPerfilContenido = null;
+
+    #[ORM\OneToMany(mappedBy: 'usuario', targetEntity: Historiales::class, cascade: ['persist', 'remove'])]
+    private Collection $historiales;
+
+    public function __construct()
+    {
+        $this->historiales = new ArrayCollection();
+    }
+
+    public function getHistoriales(): Collection
+    {
+        return $this->historiales;
+    }
+
+    public function addHistorial(Historiales $historial): static
+    {
+        if (!$this->historiales->contains($historial)) {
+            $this->historiales[] = $historial;
+            $historial->setUsuario($this);
+        }
+
+        return $this;
+    }
+
 
     public function getIdUsuario(): ?int
     {

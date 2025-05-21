@@ -44,6 +44,9 @@ class Peliculas
     #[ORM\InverseJoinColumn(name: 'id_categoria', referencedColumnName: 'id_categoria')]
     private Collection $relationCategorias;
 
+    #[ORM\OneToMany(mappedBy: 'pelicula', targetEntity: Historiales::class, cascade: ['persist', 'remove'])]
+    private Collection $historiales;
+
     /**
      * @var Collection<int, Actores>
      */
@@ -62,6 +65,7 @@ class Peliculas
         $this->relationCategorias = new ArrayCollection();
         $this->actores = new ArrayCollection();
         $this->comentarios = new ArrayCollection();
+        $this->historiales = new ArrayCollection();
     }
 
     /**
@@ -118,6 +122,33 @@ class Peliculas
         if ($this->actores->removeElement($actor)) {
             $actor->removeRelationPelicula($this);
         }
+        return $this;
+    }
+
+
+    public function getHistoriales(): Collection
+    {
+        return $this->historiales;
+    }
+
+    public function addHistorial(Historiales $historial): static
+    {
+        if (!$this->historiales->contains($historial)) {
+            $this->historiales[] = $historial;
+            $historial->setPelicula($this);
+        }
+
+        return $this;
+    }
+
+    public function removeHistorial(Historiales $historial): static
+    {
+        if ($this->historiales->removeElement($historial)) {
+            if ($historial->getPelicula() === $this) {
+                $historial->setPelicula(null);
+            }
+        }
+
         return $this;
     }
 
