@@ -19,6 +19,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Exception;
 use App\Entity\ComentarioReacciones;
+use App\Entity\RespuestaReacciones;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 
@@ -220,6 +221,8 @@ final class UserController extends AbstractController
         $result = [];
         foreach ($comments as $comment) {
             $entityManager->refresh($comment->getUsuario());
+
+            // Reacciones del comentario principal
             $likes = $entityManager->getRepository(ComentarioReacciones::class)->count([
                 'comentario' => $comment,
                 'tipo' => 'like',
@@ -242,10 +245,48 @@ final class UserController extends AbstractController
                 }
             }
 
-            $commentData = $comment->toArray();
+            // Preparar data del comentario
+            $commentData = $comment->toArray(false); // false para no incluir respuestas automáticas
             $commentData['likes'] = $likes;
             $commentData['dislikes'] = $dislikes;
             $commentData['userReaction'] = $userReaction;
+
+            // Procesar respuestas con sus reacciones
+            $respuestasFinal = [];
+            foreach ($comment->getRelacionRespuestas() as $respuesta) {
+                $entityManager->refresh($respuesta->getUsuario());
+
+                $likesRes = $entityManager->getRepository(RespuestaReacciones::class)->count([
+                    'respuesta' => $respuesta,
+                    'tipo' => 'like',
+                ]);
+
+                $dislikesRes = $entityManager->getRepository(RespuestaReacciones::class)->count([
+                    'respuesta' => $respuesta,
+                    'tipo' => 'dislike',
+                ]);
+
+                $userReactionRes = null;
+                if ($userId) {
+                    $user = $entityManager->getRepository(Usuarios::class)->find($userId);
+                    $reaccionRes = $entityManager->getRepository(RespuestaReacciones::class)->findOneBy([
+                        'respuesta' => $respuesta,
+                        'usuario' => $user,
+                    ]);
+                    if ($reaccionRes) {
+                        $userReactionRes = $reaccionRes->getTipo();
+                    }
+                }
+
+                $resData = $respuesta->toArray();
+                $resData['likes'] = $likesRes;
+                $resData['dislikes'] = $dislikesRes;
+                $resData['userReaction'] = $userReactionRes;
+
+                $respuestasFinal[] = $resData;
+            }
+
+            $commentData['respuestas'] = $respuestasFinal;
 
             $result[] = $commentData;
         }
@@ -762,6 +803,60 @@ final class UserController extends AbstractController
             'likes' => $likes,
             'dislikes' => $dislikes,
             'status' => 'updated'
+        ]);
+    }
+
+    #[Route('/respuesta/reaccion', name: 'respuesta_reaccion', methods: ['POST'])]
+    public function reaccionarRespuesta(Request $request, EntityManagerInterface $em): JsonResponse
+    {
+        $respuestaId = $request->request->get('respuesta_id');
+        $usuarioId = $request->request->get('usuario_id');
+        $tipo = $request->request->get('tipo'); // 'like' o 'dislike'
+
+        if (!in_array($tipo, ['like', 'dislike'])) {
+            return new JsonResponse(['message' => 'Tipo inválido.'], 400);
+        }
+
+        $respuesta = $em->getRepository(Respuestas::class)->find($respuestaId);
+        $usuario = $em->getRepository(Usuarios::class)->find($usuarioId);
+
+        if (!$respuesta || !$usuario) {
+            return new JsonResponse(['message' => 'Respuesta o usuario no encontrado.'], 404);
+        }
+
+        $repo = $em->getRepository(RespuestaReacciones::class);
+        $reaccionExistente = $repo->findOneBy(['respuesta' => $respuesta, 'usuario' => $usuario]);
+
+        if ($reaccionExistente) {
+            if ($reaccionExistente->getTipo() === $tipo) {
+                $em->remove($reaccionExistente); // quitar reacción
+            } else {
+                $reaccionExistente->setTipo($tipo); // cambiar reacción
+            }
+        } else {
+            $nueva = new RespuestaReacciones();
+            $nueva->setRespuesta($respuesta);
+            $nueva->setUsuario($usuario);
+            $nueva->setTipo($tipo);
+            $em->persist($nueva);
+        }
+
+        $em->flush();
+
+        // Contadores actualizados
+        $likes = $repo->count(['respuesta' => $respuesta, 'tipo' => 'like']);
+        $dislikes = $repo->count(['respuesta' => $respuesta, 'tipo' => 'dislike']);
+
+        $userReaction = null;
+        $reaccionFinal = $repo->findOneBy(['respuesta' => $respuesta, 'usuario' => $usuario]);
+        if ($reaccionFinal) {
+            $userReaction = $reaccionFinal->getTipo();
+        }
+
+        return new JsonResponse([
+            'likes' => $likes,
+            'dislikes' => $dislikes,
+            'userReaction' => $userReaction,
         ]);
     }
 }

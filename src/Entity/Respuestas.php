@@ -86,9 +86,9 @@ class Respuestas
     {
         return [
             'id' => $this->getId(),
-            'usuario' => $this->getUsuario()?->toArray(),
             'mensaje' => $this->getMensaje(),
             'fecha_creacion' => $this->getFechaCreacion()?->format('Y-m-d H:i:s'),
+            'usuario' => $this->getUsuario()?->toArray(),
         ];
     }
 }
