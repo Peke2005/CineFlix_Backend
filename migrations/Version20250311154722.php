@@ -39,6 +39,9 @@ final class Version20250311154722 extends AbstractMigration
         $this->addSql('ALTER TABLE comentarios ADD CONSTRAINT fkPelicula FOREIGN KEY (pelicula_id) REFERENCES peliculas (id_pelicula) ON DELETE NO ACTION');
         $this->addSql('ALTER TABLE respuestas ADD CONSTRAINT fkUsuarioRespuesta FOREIGN KEY (usuario_id) REFERENCES usuarios (id_usuario) ON DELETE NO ACTION');
         $this->addSql('ALTER TABLE respuestas ADD CONSTRAINT fkComentario FOREIGN KEY (comentario_id) REFERENCES comentarios (id) ON DELETE CASCADE');
+        $this->addSql('CREATE TABLE comentario_reacciones (id INT AUTO_INCREMENT NOT NULL, comentario_id INT NOT NULL, usuario_id INT NOT NULL, tipo ENUM("like", "dislike") NOT NULL, UNIQUE INDEX UNIQ_comentario_usuario (comentario_id, usuario_id), INDEX IDX_comentario (comentario_id), INDEX IDX_usuario (usuario_id), PRIMARY KEY(id) ) DEFAULT CHARACTER SET utf8mb4 COLLATE `utf8mb4_unicode_ci` ENGINE = InnoDB');
+        $this->addSql('ALTER TABLE comentario_reacciones ADD CONSTRAINT FK_comentario FOREIGN KEY (comentario_id) REFERENCES comentarios (id) ON DELETE CASCADE');
+        $this->addSql('ALTER TABLE comentario_reacciones ADD CONSTRAINT FK_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios (id_usuario) ON DELETE CASCADE');
     }
 
     public function down(Schema $schema): void
@@ -58,6 +61,8 @@ final class Version20250311154722 extends AbstractMigration
         $this->addSql('DROP TABLE usuarios');
         $this->addSql('DROP TABLE messenger_messages');
         $this->addSql('DROP TABLE respuestas');
-        $this->addSql('DROP TABLE comentarios');
+        $this->addSql('ALTER TABLE comentario_reacciones DROP FOREIGN KEY FK_comentario');
+        $this->addSql('ALTER TABLE comentario_reacciones DROP FOREIGN KEY FK_usuario');
+        $this->addSql('DROP TABLE comentario_reacciones');
     }
 }
