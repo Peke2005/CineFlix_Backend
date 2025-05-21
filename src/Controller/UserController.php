@@ -147,34 +147,23 @@ final class UserController extends AbstractController
         }
 
         $qb = $entityManager->createQueryBuilder();
-        $qb->select('p, c, r, cat, a')
+        $qb->select('p, cat, a')
             ->from(Peliculas::class, 'p')
-            ->leftJoin('p.comentarios', 'c')
-            ->leftJoin('c.relacionRespuestas', 'r')
             ->leftJoin('p.relationCategorias', 'cat')
             ->leftJoin('p.actores', 'a')
             ->where('p.titulo LIKE :title')
-            ->setParameter('title', '%' . $title . '%')
-            ->orderBy('c.fechaCreacion', 'DESC');
+            ->setParameter('title', '%' . $title . '%');
 
-        $query = $qb->getQuery();
-        $movies = $query->getResult();
+        $movies = $qb->getQuery()->getResult();
 
         if (!empty($movies)) {
             $result = [];
             foreach ($movies as $movie) {
                 $categories = [];
                 $actors = [];
-                $comentarios = [];
 
                 foreach ($movie->getRelationCategorias() as $category) {
                     $categories[] = $category->getNombreCategoria();
-                }
-
-                foreach ($movie->getComentarios() as $comentario) {
-                    // Forzar recarga del usuario para evitar caché
-                    $entityManager->refresh($comentario->getUsuario());
-                    $comentarios[] = $comentario->toArray();
                 }
 
                 foreach ($movie->getActores() as $actor) {
@@ -196,15 +185,51 @@ final class UserController extends AbstractController
                     'trailer' => $movie->getTrailer(),
                     'imageUrl' => $movie->getPortada(),
                     'actors' => $actors,
-                    'comentarios' => $comentarios,
                 ];
             }
 
             return new JsonResponse(['message' => 'Películas encontradas', 'data' => $result]);
-        } else {
-            return new JsonResponse(['message' => 'No se encontró ninguna película.']);
         }
+
+        return new JsonResponse(['message' => 'No se encontró ninguna película.'], 404);
     }
+
+    #[Route('/comments', name: 'app_movie_comments', methods: ['GET'])]
+    public function getComments(Request $request, EntityManagerInterface $entityManager): JsonResponse
+    {
+        $id = $request->query->get('idFilm');
+
+        $movie = $entityManager->getRepository(Peliculas::class)->find($id);
+
+        if (!$movie) {
+            return new JsonResponse(['message' => 'Película no encontrada.'], 404);
+        }
+
+        $qb = $entityManager->createQueryBuilder();
+        $qb->select('c, r, u')
+            ->from(Comentarios::class, 'c')
+            ->leftJoin('c.relacionRespuestas', 'r')
+            ->leftJoin('c.usuario', 'u')
+            ->where('c.pelicula = :movie')
+            ->setParameter('movie', $movie)
+            ->orderBy('c.fechaCreacion', 'DESC');
+
+        $comments = $qb->getQuery()->getResult();
+
+        $result = [];
+        foreach ($comments as $comment) {
+            // Forzar recarga del usuario para evitar problemas de caché
+            $entityManager->refresh($comment->getUsuario());
+            $result[] = $comment->toArray();
+        }
+
+        return new JsonResponse([
+            'message' => 'Comentarios encontrados',
+            'movieId' => $id,
+            'data' => $result
+        ]);
+    }
+
     #[Route('/movieSearchCategory', name: 'app_movie_search_category', methods: ['GET'])]
     public function findByCategory(Request $request, EntityManagerInterface $entityManager): JsonResponse
     {
@@ -313,6 +338,8 @@ final class UserController extends AbstractController
         return new JsonResponse(['message' => 'Datos del usuario actualizados correctamente.']);
     }
 
+
+
     #[Route('/listFilms', name: 'app_movies', methods: ['GET'])]
     public function listAllFilms(EntityManagerInterface $entityManager): JsonResponse
     {
@@ -349,13 +376,13 @@ final class UserController extends AbstractController
         return new JsonResponse(['message' => 'Todas las películas', 'data' => $result]);
     }
 
-    #[Route('/historial/{usuarioId}', name: 'api_historial_usuario', methods: ['GET'])]
+    #[Route('/historial', name: 'api_historial_usuario', methods: ['GET'])]
     public function getHistorialUsuario(
-        int $usuarioId,
         Request $request,
         EntityManagerInterface $em,
         HistorialesRepository $historialesRepository
     ): JsonResponse {
+        $usuarioId = $request->query->get('id');
         $usuario = $em->getRepository(Usuarios::class)->find($usuarioId);
         if (!$usuario) {
             return new JsonResponse(['error' => 'Usuario no encontrado'], 404);
