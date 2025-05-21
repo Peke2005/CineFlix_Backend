@@ -140,7 +140,6 @@ final class UserController extends AbstractController
     public function findByTitle(Request $request, EntityManagerInterface $entityManager): JsonResponse
     {
         $title = $request->query->get('title');
-        $userId = $request->query->get('idUser');
 
 
         if (empty($title)) {
@@ -162,43 +161,10 @@ final class UserController extends AbstractController
             foreach ($movies as $movie) {
                 $categories = [];
                 $actors = [];
+                $comentarios = [];
 
                 foreach ($movie->getRelationCategorias() as $category) {
                     $categories[] = $category->getNombreCategoria();
-                }
-                
-                foreach ($movie->getComentarios() as $comentario) {
-                    $entityManager->refresh($comentario->getUsuario());
-
-                    // Calcular likes/dislikes y reacción del usuario actual
-                    $likes = $entityManager->getRepository(ComentarioReacciones::class)->count([
-                        'comentario' => $comentario,
-                        'tipo' => 'like',
-                    ]);
-
-                    $dislikes = $entityManager->getRepository(ComentarioReacciones::class)->count([
-                        'comentario' => $comentario,
-                        'tipo' => 'dislike',
-                    ]);
-
-                    $userReaction = null;
-                    if ($userId) {
-                        $user = $entityManager->getRepository(Usuarios::class)->find($userId);
-                        $reaccion = $entityManager->getRepository(ComentarioReacciones::class)->findOneBy([
-                            'comentario' => $comentario,
-                            'usuario' => $user,
-                        ]);
-                        if ($reaccion) {
-                            $userReaction = $reaccion->getTipo();
-                        }
-                    }
-
-                    $comentarioData = $comentario->toArray();
-                    $comentarioData['likes'] = $likes;
-                    $comentarioData['dislikes'] = $dislikes;
-                    $comentarioData['userReaction'] = $userReaction;
-
-                    $comentarios[] = $comentarioData;
                 }
                 foreach ($movie->getActores() as $actor) {
                     $actors[] = [
@@ -232,6 +198,7 @@ final class UserController extends AbstractController
     public function getComments(Request $request, EntityManagerInterface $entityManager): JsonResponse
     {
         $id = $request->query->get('idFilm');
+        $userId = $request->query->get('idUser');
 
         $movie = $entityManager->getRepository(Peliculas::class)->find($id);
 
@@ -254,7 +221,34 @@ final class UserController extends AbstractController
         foreach ($comments as $comment) {
             // Forzar recarga del usuario para evitar problemas de caché
             $entityManager->refresh($comment->getUsuario());
-            $result[] = $comment->toArray();
+            $likes = $entityManager->getRepository(ComentarioReacciones::class)->count([
+                'comentario' => $comment,
+                'tipo' => 'like',
+            ]);
+
+            $dislikes = $entityManager->getRepository(ComentarioReacciones::class)->count([
+                'comentario' => $comment,
+                'tipo' => 'dislike',
+            ]);
+
+            $userReaction = null;
+            if ($userId) {
+                $user = $entityManager->getRepository(Usuarios::class)->find($userId);
+                $reaccion = $entityManager->getRepository(ComentarioReacciones::class)->findOneBy([
+                    'comentario' => $comment,
+                    'usuario' => $user,
+                ]);
+                if ($reaccion) {
+                    $userReaction = $reaccion->getTipo();
+                }
+            }
+
+            $commentData = $comment->toArray();
+            $commentData['likes'] = $likes;
+            $commentData['dislikes'] = $dislikes;
+            $commentData['userReaction'] = $userReaction;
+
+            $result[] = $commentData;
         }
 
         return new JsonResponse([
