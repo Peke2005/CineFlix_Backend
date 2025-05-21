@@ -465,7 +465,7 @@ final class UserController extends AbstractController
         ], 200);
     }
 
-    #[Route('/historial/add', name: 'api_historial_add', methods: ['POST'])]
+    #[Route('/historial', name: 'api_historial_add', methods: ['POST'])]
     public function addHistorial(
         Request $request,
         EntityManagerInterface $em
