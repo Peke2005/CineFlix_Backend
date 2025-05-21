@@ -218,7 +218,6 @@ final class UserController extends AbstractController
 
         $result = [];
         foreach ($comments as $comment) {
-            // Forzar recarga del usuario para evitar problemas de caché
             $entityManager->refresh($comment->getUsuario());
             $result[] = $comment->toArray();
         }
@@ -432,7 +431,57 @@ final class UserController extends AbstractController
         ], 200);
     }
 
+    #[Route('/historial/add', name: 'api_historial_add', methods: ['POST'])]
+    public function addHistorial(
+        Request $request,
+        EntityManagerInterface $em
+    ): JsonResponse {
+        $data = json_decode($request->getContent(), true) ?? [];
+        $usuarioId = $data['usuarioId'] ?? $request->query->get('usuarioId');
+        $peliculaId = $data['peliculaId'] ?? $request->query->get('peliculaId');
+        $fechaVista = $data['fechaVista'] ?? null;
 
+        if (!$usuarioId || !$peliculaId) {
+            return new JsonResponse(['error' => 'Faltan usuarioId o peliculaId'], 400);
+        }
+
+        $usuario = $em->getRepository(Usuarios::class)->find($usuarioId);
+        if (!$usuario) {
+            return new JsonResponse(['error' => 'Usuario no encontrado'], 404);
+        }
+
+        $pelicula = $em->getRepository(Peliculas::class)->find($peliculaId);
+        if (!$pelicula) {
+            return new JsonResponse(['error' => 'Película no encontrada'], 404);
+        }
+
+        try {
+            $fechaVistaDate = $fechaVista ? new \DateTime($fechaVista) : new \DateTime();
+        } catch (\Exception $e) {
+            return new JsonResponse(['error' => 'Formato de fechaVista inválido. Usa formato Y-m-d H:i:s'], 400);
+        }
+
+        $existingHistorial = $em->getRepository(Historiales::class)->findOneBy([
+            'usuario' => $usuario,
+            'pelicula' => $pelicula,
+        ]);
+
+        if ($existingHistorial) {
+            return new JsonResponse(['message' => 'La película ya está en el historial del usuario'], 200);
+        }
+
+        $historial = new Historiales();
+        $historial->setUsuario($usuario);
+        $historial->setPelicula($pelicula);
+        $historial->setFechaVista($fechaVistaDate);
+
+        $em->persist($historial);
+        $em->flush();
+
+        return new JsonResponse([
+            'message' => 'Película añadida al historial correctamente',
+        ], 201);
+    }
 
     #[Route('/actores', name: 'get_actores', methods: ['GET'])]
     public function getActores(EntityManagerInterface $em): JsonResponse
@@ -581,7 +630,7 @@ final class UserController extends AbstractController
                 return new JsonResponse(['message' => 'Usuario no encontrado.'], Response::HTTP_NOT_FOUND);
             }
             if ($user) {
-                $entityManager->refresh($user); // Fuerza recargar desde la BD
+                $entityManager->refresh($user);
             }
 
             $movie = $entityManager->getRepository(Peliculas::class)->find($movieId);
@@ -619,7 +668,7 @@ final class UserController extends AbstractController
                 return new JsonResponse(['message' => 'Usuario no encontrado.'], Response::HTTP_NOT_FOUND);
             }
             if ($user) {
-                $entityManager->refresh($user); // Fuerza recargar desde la BD
+                $entityManager->refresh($user);
             }
 
             $comment = $entityManager->getRepository(Comentarios::class)->find($commentId);
