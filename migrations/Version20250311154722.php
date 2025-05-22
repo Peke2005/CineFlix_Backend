@@ -48,6 +48,7 @@ final class Version20250311154722 extends AbstractMigration
                 $this->addSql('CREATE TABLE respuesta_reacciones (id INT AUTO_INCREMENT NOT NULL, respuesta_id INT NOT NULL, usuario_id INT NOT NULL, tipo ENUM("like", "dislike") NOT NULL, UNIQUE INDEX UNIQ_respuesta_usuario (respuesta_id, usuario_id), INDEX IDX_respuesta (respuesta_id), INDEX IDX_usuario_respuesta (usuario_id), PRIMARY KEY(id)) DEFAULT CHARACTER SET utf8mb4 COLLATE `utf8mb4_unicode_ci` ENGINE = InnoDB');
                 $this->addSql('ALTER TABLE respuesta_reacciones ADD CONSTRAINT FK_respuesta FOREIGN KEY (respuesta_id) REFERENCES respuestas (id) ON DELETE CASCADE');
                 $this->addSql('ALTER TABLE respuesta_reacciones ADD CONSTRAINT FK_usuario_respuesta FOREIGN KEY (usuario_id) REFERENCES usuarios (id_usuario) ON DELETE CASCADE');
+                $this->addSql('CREATE TABLE valoraciones (id INT AUTO_INCREMENT NOT NULL, usuario_id INT NOT NULL, pelicula_id INT NOT NULL, valor INT NOT NULL, UNIQUE INDEX UNIQ_valoracion_usuario_pelicula (usuario_id, pelicula_id), INDEX IDX_valoracion_usuario (usuario_id), INDEX IDX_valoracion_pelicula (pelicula_id), PRIMARY KEY(id)) DEFAULT CHARACTER SET utf8mb4 COLLATE `utf8mb4_unicode_ci` ENGINE = InnoDB');
         }
 
         public function down(Schema $schema): void
@@ -77,5 +78,7 @@ final class Version20250311154722 extends AbstractMigration
                 $this->addSql('ALTER TABLE respuesta_reacciones DROP FOREIGN KEY FK_respuesta');
                 $this->addSql('ALTER TABLE respuesta_reacciones DROP FOREIGN KEY FK_usuario_respuesta');
                 $this->addSql('DROP TABLE respuesta_reacciones');
+                $this->addSql('ALTER TABLE valoraciones ADD CONSTRAINT FK_valoracion_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios (id_usuario) ON DELETE CASCADE');
+                $this->addSql('ALTER TABLE valoraciones ADD CONSTRAINT FK_valoracion_pelicula FOREIGN KEY (pelicula_id) REFERENCES peliculas (id_pelicula) ON DELETE CASCADE');
         }
 }

@@ -20,7 +20,11 @@ use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Exception;
 use App\Entity\ComentarioReacciones;
 use App\Entity\RespuestaReacciones;
+use App\Entity\Valoraciones;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use App\Repository\ValoracionesRepository;
+use App\Repository\UsuariosRepository;
+use App\Repository\PeliculasRepository;
 
 
 final class UserController extends AbstractController
@@ -847,5 +851,68 @@ final class UserController extends AbstractController
             'dislikes' => $dislikes,
             'userReaction' => $userReaction,
         ]);
+    }
+
+    #[Route('/rateMovie', name: 'rate_movie', methods: ['POST'])]
+    public function rateMovie(Request $request, EntityManagerInterface $entityManager): JsonResponse
+    {
+        $userId = $request->request->get('userId');      // FormData
+        $movieId = $request->request->get('movieId');    // FormData
+        $valor   = $request->request->get('valor');      // FormData
+
+        if (!$userId || !$movieId || !$valor) {
+            return new JsonResponse(['error' => 'Faltan datos.'], 400);
+        }
+
+        $usuario = $entityManager->getRepository(Usuarios::class)->find($userId);
+        $pelicula = $entityManager->getRepository(Peliculas::class)->find($movieId);
+
+        if (!$usuario || !$pelicula) {
+            return new JsonResponse(['error' => 'Usuario o película no encontrada.'], 404);
+        }
+
+        $valoracion = $entityManager->getRepository(Valoraciones::class)->findOneBy([
+            'usuario' => $usuario,
+            'pelicula' => $pelicula
+        ]);
+
+        if (!$valoracion) {
+            $valoracion = new \App\Entity\Valoraciones();
+            $valoracion->setUsuario($usuario);
+            $valoracion->setPelicula($pelicula);
+        }
+
+        $valoracion->setValor((int) $valor);
+        $entityManager->persist($valoracion);
+        $entityManager->flush();
+
+        return new JsonResponse(['message' => 'Valoración guardada con éxito']);
+    }
+
+    #[Route('/getUserRating', name: 'get_user_rating', methods: ['GET'])]
+    public function getUserRating(
+        Request $request,
+        ValoracionesRepository $valoracionesRepository,
+        UsuariosRepository $usuariosRepository,
+        PeliculasRepository $peliculasRepository
+    ): JsonResponse {
+        $userId = $request->query->get('userId');
+        $movieId = $request->query->get('movieId');
+
+        $user = $usuariosRepository->find($userId);
+        $movie = $peliculasRepository->find($movieId);
+
+        if (!$user || !$movie) {
+            return new JsonResponse(['valor' => 0]);
+        }
+
+        $valoracion = $valoracionesRepository->findOneBy([
+            'usuario' => $user,
+            'pelicula' => $movie,
+        ]);
+
+        $valor = $valoracion ? $valoracion->getValor() : 0;
+
+        return new JsonResponse(['valor' => $valor]);
     }
 }
