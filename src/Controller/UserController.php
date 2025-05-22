@@ -456,15 +456,10 @@ final class UserController extends AbstractController
             return new JsonResponse(['error' => 'Usuario no encontrado'], 404);
         }
 
-        $page = max(1, $request->query->getInt('page', 1));
-        $limit = 10;
-        $offset = ($page - 1) * $limit;
 
         $historiales = $historialesRepository->findBy(
             ['usuario' => $usuario],
             ['fechaVista' => 'DESC'],
-            $limit,
-            $offset
         );
 
         $total = $historialesRepository->count(['usuario' => $usuario]);
@@ -491,12 +486,6 @@ final class UserController extends AbstractController
 
         return new JsonResponse([
             'peliculas' => $peliculas,
-            'meta' => [
-                'page' => $page,
-                'limit' => $limit,
-                'total' => $total,
-                'pages' => ceil($total / $limit)
-            ]
         ], 200);
     }
 
