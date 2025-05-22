@@ -19,7 +19,12 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Exception;
 use App\Entity\ComentarioReacciones;
+use App\Entity\RespuestaReacciones;
+use App\Entity\Valoraciones;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use App\Repository\ValoracionesRepository;
+use App\Repository\UsuariosRepository;
+use App\Repository\PeliculasRepository;
 
 
 final class UserController extends AbstractController
@@ -140,7 +145,6 @@ final class UserController extends AbstractController
     public function findByTitle(Request $request, EntityManagerInterface $entityManager): JsonResponse
     {
         $title = $request->query->get('title');
-        $userId = $request->query->get('idUser');
 
 
         if (empty($title)) {
@@ -162,43 +166,10 @@ final class UserController extends AbstractController
             foreach ($movies as $movie) {
                 $categories = [];
                 $actors = [];
+                $comentarios = [];
 
                 foreach ($movie->getRelationCategorias() as $category) {
                     $categories[] = $category->getNombreCategoria();
-                }
-                
-                foreach ($movie->getComentarios() as $comentario) {
-                    $entityManager->refresh($comentario->getUsuario());
-
-                    // Calcular likes/dislikes y reacción del usuario actual
-                    $likes = $entityManager->getRepository(ComentarioReacciones::class)->count([
-                        'comentario' => $comentario,
-                        'tipo' => 'like',
-                    ]);
-
-                    $dislikes = $entityManager->getRepository(ComentarioReacciones::class)->count([
-                        'comentario' => $comentario,
-                        'tipo' => 'dislike',
-                    ]);
-
-                    $userReaction = null;
-                    if ($userId) {
-                        $user = $entityManager->getRepository(Usuarios::class)->find($userId);
-                        $reaccion = $entityManager->getRepository(ComentarioReacciones::class)->findOneBy([
-                            'comentario' => $comentario,
-                            'usuario' => $user,
-                        ]);
-                        if ($reaccion) {
-                            $userReaction = $reaccion->getTipo();
-                        }
-                    }
-
-                    $comentarioData = $comentario->toArray();
-                    $comentarioData['likes'] = $likes;
-                    $comentarioData['dislikes'] = $dislikes;
-                    $comentarioData['userReaction'] = $userReaction;
-
-                    $comentarios[] = $comentarioData;
                 }
                 foreach ($movie->getActores() as $actor) {
                     $actors[] = [
@@ -232,6 +203,7 @@ final class UserController extends AbstractController
     public function getComments(Request $request, EntityManagerInterface $entityManager): JsonResponse
     {
         $id = $request->query->get('idFilm');
+        $userId = $request->query->get('idUser');
 
         $movie = $entityManager->getRepository(Peliculas::class)->find($id);
 
@@ -253,7 +225,74 @@ final class UserController extends AbstractController
         $result = [];
         foreach ($comments as $comment) {
             $entityManager->refresh($comment->getUsuario());
-            $result[] = $comment->toArray();
+
+            // Reacciones del comentario principal
+            $likes = $entityManager->getRepository(ComentarioReacciones::class)->count([
+                'comentario' => $comment,
+                'tipo' => 'like',
+            ]);
+
+            $dislikes = $entityManager->getRepository(ComentarioReacciones::class)->count([
+                'comentario' => $comment,
+                'tipo' => 'dislike',
+            ]);
+
+            $userReaction = null;
+            if ($userId) {
+                $user = $entityManager->getRepository(Usuarios::class)->find($userId);
+                $reaccion = $entityManager->getRepository(ComentarioReacciones::class)->findOneBy([
+                    'comentario' => $comment,
+                    'usuario' => $user,
+                ]);
+                if ($reaccion) {
+                    $userReaction = $reaccion->getTipo();
+                }
+            }
+
+            // Preparar data del comentario
+            $commentData = $comment->toArray(false); // false para no incluir respuestas automáticas
+            $commentData['likes'] = $likes;
+            $commentData['dislikes'] = $dislikes;
+            $commentData['userReaction'] = $userReaction;
+
+            // Procesar respuestas con sus reacciones
+            $respuestasFinal = [];
+            foreach ($comment->getRelacionRespuestas() as $respuesta) {
+                $entityManager->refresh($respuesta->getUsuario());
+
+                $likesRes = $entityManager->getRepository(RespuestaReacciones::class)->count([
+                    'respuesta' => $respuesta,
+                    'tipo' => 'like',
+                ]);
+
+                $dislikesRes = $entityManager->getRepository(RespuestaReacciones::class)->count([
+                    'respuesta' => $respuesta,
+                    'tipo' => 'dislike',
+                ]);
+
+                $userReactionRes = null;
+                if ($userId) {
+                    $user = $entityManager->getRepository(Usuarios::class)->find($userId);
+                    $reaccionRes = $entityManager->getRepository(RespuestaReacciones::class)->findOneBy([
+                        'respuesta' => $respuesta,
+                        'usuario' => $user,
+                    ]);
+                    if ($reaccionRes) {
+                        $userReactionRes = $reaccionRes->getTipo();
+                    }
+                }
+
+                $resData = $respuesta->toArray();
+                $resData['likes'] = $likesRes;
+                $resData['dislikes'] = $dislikesRes;
+                $resData['userReaction'] = $userReactionRes;
+
+                $respuestasFinal[] = $resData;
+            }
+
+            $commentData['respuestas'] = $respuestasFinal;
+
+            $result[] = $commentData;
         }
 
         return new JsonResponse([
@@ -421,15 +460,10 @@ final class UserController extends AbstractController
             return new JsonResponse(['error' => 'Usuario no encontrado'], 404);
         }
 
-        $page = max(1, $request->query->getInt('page', 1));
-        $limit = 10;
-        $offset = ($page - 1) * $limit;
 
         $historiales = $historialesRepository->findBy(
             ['usuario' => $usuario],
             ['fechaVista' => 'DESC'],
-            $limit,
-            $offset
         );
 
         $total = $historialesRepository->count(['usuario' => $usuario]);
@@ -456,12 +490,6 @@ final class UserController extends AbstractController
 
         return new JsonResponse([
             'peliculas' => $peliculas,
-            'meta' => [
-                'page' => $page,
-                'limit' => $limit,
-                'total' => $total,
-                'pages' => ceil($total / $limit)
-            ]
         ], 200);
     }
 
@@ -769,5 +797,122 @@ final class UserController extends AbstractController
             'dislikes' => $dislikes,
             'status' => 'updated'
         ]);
+    }
+
+    #[Route('/respuesta/reaccion', name: 'respuesta_reaccion', methods: ['POST'])]
+    public function reaccionarRespuesta(Request $request, EntityManagerInterface $em): JsonResponse
+    {
+        $respuestaId = $request->request->get('respuesta_id');
+        $usuarioId = $request->request->get('usuario_id');
+        $tipo = $request->request->get('tipo'); // 'like' o 'dislike'
+
+        if (!in_array($tipo, ['like', 'dislike'])) {
+            return new JsonResponse(['message' => 'Tipo inválido.'], 400);
+        }
+
+        $respuesta = $em->getRepository(Respuestas::class)->find($respuestaId);
+        $usuario = $em->getRepository(Usuarios::class)->find($usuarioId);
+
+        if (!$respuesta || !$usuario) {
+            return new JsonResponse(['message' => 'Respuesta o usuario no encontrado.'], 404);
+        }
+
+        $repo = $em->getRepository(RespuestaReacciones::class);
+        $reaccionExistente = $repo->findOneBy(['respuesta' => $respuesta, 'usuario' => $usuario]);
+
+        if ($reaccionExistente) {
+            if ($reaccionExistente->getTipo() === $tipo) {
+                $em->remove($reaccionExistente); // quitar reacción
+            } else {
+                $reaccionExistente->setTipo($tipo); // cambiar reacción
+            }
+        } else {
+            $nueva = new RespuestaReacciones();
+            $nueva->setRespuesta($respuesta);
+            $nueva->setUsuario($usuario);
+            $nueva->setTipo($tipo);
+            $em->persist($nueva);
+        }
+
+        $em->flush();
+
+        // Contadores actualizados
+        $likes = $repo->count(['respuesta' => $respuesta, 'tipo' => 'like']);
+        $dislikes = $repo->count(['respuesta' => $respuesta, 'tipo' => 'dislike']);
+
+        $userReaction = null;
+        $reaccionFinal = $repo->findOneBy(['respuesta' => $respuesta, 'usuario' => $usuario]);
+        if ($reaccionFinal) {
+            $userReaction = $reaccionFinal->getTipo();
+        }
+
+        return new JsonResponse([
+            'likes' => $likes,
+            'dislikes' => $dislikes,
+            'userReaction' => $userReaction,
+        ]);
+    }
+
+    #[Route('/rateMovie', name: 'rate_movie', methods: ['POST'])]
+    public function rateMovie(Request $request, EntityManagerInterface $entityManager): JsonResponse
+    {
+        $userId = $request->request->get('userId');      // FormData
+        $movieId = $request->request->get('movieId');    // FormData
+        $valor   = $request->request->get('valor');      // FormData
+
+        if (!$userId || !$movieId || !$valor) {
+            return new JsonResponse(['error' => 'Faltan datos.'], 400);
+        }
+
+        $usuario = $entityManager->getRepository(Usuarios::class)->find($userId);
+        $pelicula = $entityManager->getRepository(Peliculas::class)->find($movieId);
+
+        if (!$usuario || !$pelicula) {
+            return new JsonResponse(['error' => 'Usuario o película no encontrada.'], 404);
+        }
+
+        $valoracion = $entityManager->getRepository(Valoraciones::class)->findOneBy([
+            'usuario' => $usuario,
+            'pelicula' => $pelicula
+        ]);
+
+        if (!$valoracion) {
+            $valoracion = new \App\Entity\Valoraciones();
+            $valoracion->setUsuario($usuario);
+            $valoracion->setPelicula($pelicula);
+        }
+
+        $valoracion->setValor((int) $valor);
+        $entityManager->persist($valoracion);
+        $entityManager->flush();
+
+        return new JsonResponse(['message' => 'Valoración guardada con éxito']);
+    }
+
+    #[Route('/getUserRating', name: 'get_user_rating', methods: ['GET'])]
+    public function getUserRating(
+        Request $request,
+        ValoracionesRepository $valoracionesRepository,
+        UsuariosRepository $usuariosRepository,
+        PeliculasRepository $peliculasRepository
+    ): JsonResponse {
+        $userId = $request->query->get('userId');
+        $movieId = $request->query->get('movieId');
+
+        $user = $usuariosRepository->find($userId);
+        $movie = $peliculasRepository->find($movieId);
+
+        if (!$user || !$movie) {
+            return new JsonResponse(['valor' => 0]);
+        }
+
+        $valoracion = $valoracionesRepository->findOneBy([
+            'usuario' => $user,
+            'pelicula' => $movie,
+        ]);
+
+        $valor = $valoracion ? $valoracion->getValor() : 0;
+
+        return new JsonResponse(['valor' => $valor]);
     }
 }
