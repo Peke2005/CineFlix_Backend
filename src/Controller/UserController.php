@@ -226,7 +226,6 @@ final class UserController extends AbstractController
         foreach ($comments as $comment) {
             $entityManager->refresh($comment->getUsuario());
 
-            // Reacciones del comentario principal
             $likes = $entityManager->getRepository(ComentarioReacciones::class)->count([
                 'comentario' => $comment,
                 'tipo' => 'like',
@@ -249,13 +248,11 @@ final class UserController extends AbstractController
                 }
             }
 
-            // Preparar data del comentario
-            $commentData = $comment->toArray(false); // false para no incluir respuestas automáticas
+            $commentData = $comment->toArray(false);
             $commentData['likes'] = $likes;
             $commentData['dislikes'] = $dislikes;
             $commentData['userReaction'] = $userReaction;
 
-            // Procesar respuestas con sus reacciones
             $respuestasFinal = [];
             foreach ($comment->getRelacionRespuestas() as $respuesta) {
                 $entityManager->refresh($respuesta->getUsuario());
@@ -804,7 +801,7 @@ final class UserController extends AbstractController
     {
         $respuestaId = $request->request->get('respuesta_id');
         $usuarioId = $request->request->get('usuario_id');
-        $tipo = $request->request->get('tipo'); // 'like' o 'dislike'
+        $tipo = $request->request->get('tipo');
 
         if (!in_array($tipo, ['like', 'dislike'])) {
             return new JsonResponse(['message' => 'Tipo inválido.'], 400);
@@ -822,9 +819,9 @@ final class UserController extends AbstractController
 
         if ($reaccionExistente) {
             if ($reaccionExistente->getTipo() === $tipo) {
-                $em->remove($reaccionExistente); // quitar reacción
+                $em->remove($reaccionExistente);
             } else {
-                $reaccionExistente->setTipo($tipo); // cambiar reacción
+                $reaccionExistente->setTipo($tipo);
             }
         } else {
             $nueva = new RespuestaReacciones();
@@ -836,7 +833,6 @@ final class UserController extends AbstractController
 
         $em->flush();
 
-        // Contadores actualizados
         $likes = $repo->count(['respuesta' => $respuesta, 'tipo' => 'like']);
         $dislikes = $repo->count(['respuesta' => $respuesta, 'tipo' => 'dislike']);
 
@@ -856,9 +852,9 @@ final class UserController extends AbstractController
     #[Route('/rateMovie', name: 'rate_movie', methods: ['POST'])]
     public function rateMovie(Request $request, EntityManagerInterface $entityManager): JsonResponse
     {
-        $userId = $request->request->get('userId');      // FormData
-        $movieId = $request->request->get('movieId');    // FormData
-        $valor   = $request->request->get('valor');      // FormData
+        $userId = $request->request->get('userId');  
+        $movieId = $request->request->get('movieId');
+        $valor   = $request->request->get('valor');  
 
         if (!$userId || !$movieId || !$valor) {
             return new JsonResponse(['error' => 'Faltan datos.'], 400);
