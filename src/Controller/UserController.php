@@ -181,7 +181,7 @@ final class UserController extends AbstractController
                 }
 
                 $result[] = [
-                    'id_pelicula' => $movie->getIdPelicula(),
+                    'id' => $movie->getIdPelicula(),
                     'title' => $movie->getTitulo(),
                     'duration' => $movie->getDuracion(),
                     'year' => $movie->getAño(),
@@ -336,7 +336,7 @@ final class UserController extends AbstractController
                 }
 
                 $result[] = [
-                    'id_pelicula' => $movie->getIdPelicula(),
+                    'id' => $movie->getIdPelicula(),
                     'title' => $movie->getTitulo(),
                     'duration' => $movie->getDuracion(),
                     'year' => $movie->getAño(),
@@ -432,7 +432,7 @@ final class UserController extends AbstractController
             }
 
             $result[] = [
-                'id_pelicula' => $film->getIdPelicula(),
+                'id' => $film->getIdPelicula(),
                 'title' => $film->getTitulo(),
                 'duration' => $film->getDuracion(),
                 'year' => $film->getAño(),
@@ -475,7 +475,7 @@ final class UserController extends AbstractController
             }
 
             $peliculas[] = [
-                'id_pelicula' => $pelicula->getIdPelicula(),
+                'id' => $pelicula->getIdPelicula(),
                 'titulo' => $pelicula->getTitulo(),
                 'descripcion' => $pelicula->getDescripcion(),
                 'categories' => $categories,
