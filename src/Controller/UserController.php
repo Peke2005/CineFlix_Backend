@@ -416,6 +416,7 @@ final class UserController extends AbstractController
         $films = $entityManager->getRepository(Peliculas::class)->findAll();
         $result = [];
         foreach ($films as $film) {
+        $actors = [];
             $categories = [];
             foreach ($film->getRelationCategorias() as $category) {
                 $categories[] = $category->getNombreCategoria();
